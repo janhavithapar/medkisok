@@ -5,10 +5,10 @@ const KioskContext = createContext(null)
 // Simple keyword => red flag rule table.
 // In a real system this would be a clinical rules engine / backend call.
 const RED_FLAG_RULES = [
-  { keywords: ['chest pain', 'chest tightness', 'chest pressure'], flag: 'Possible cardiac event — chest pain reported' },
-  { keywords: ['difficulty breathing', 'shortness of breath', 'cant breathe', "can't breathe"], flag: 'Respiratory distress reported' },
+  { keywords: ['chest pain', 'chest tightness', 'chest pressure'], flag: 'Possible cardiac event - chest pain reported' },
+  { keywords: ['difficulty breathing', 'shortness of breath', 'breathlessness', 'cant breathe', "can't breathe"], flag: 'Respiratory distress reported' },
   { keywords: ['severe bleeding', 'heavy bleeding'], flag: 'Severe bleeding reported' },
-  { keywords: ['suicidal', 'want to die', 'self harm'], flag: 'Mental health crisis — needs immediate attention' },
+  { keywords: ['suicidal', 'want to die', 'self harm'], flag: 'Mental health crisis - needs immediate attention' },
   { keywords: ['stroke', 'face drooping', 'slurred speech'], flag: 'Possible stroke symptoms' },
   { keywords: ['unconscious', 'fainted', 'passed out'], flag: 'Loss of consciousness reported' },
 ]
@@ -16,8 +16,13 @@ const RED_FLAG_RULES = [
 const initialState = {
   patient: {
     abhaId: '',
+    consent: {
+      hospitalDataSharing: false,
+      abhaLinking: false,
+    },
     name: 'Ramesh',
     language: 'hi',
+    opdType: '',
   },
   intake: {
     chiefComplaint: '',
@@ -25,17 +30,53 @@ const initialState = {
       site: '',
       onset: '',
       character: '',
+      radiation: '',
+      associatedSymptoms: '',
+      timing: '',
+      exacerbatingRelieving: '',
       severity: '',
     },
+    pastMedicalSurgicalHistory: '',
     drugAllergyHistory: {
       medications: [],
       allergies: [],
     },
+    familyHistory: '',
+    personalHistory: '',
+    reviewOfSystems: '',
+    ayush: {
+      prakriti: '',
+      vikriti: '',
+      agni: '',
+      koshtha: '',
+      ahara: [],
+      sleepHours: '',
+      activityHabits: [],
+    },
+    documents: {
+      currentReview: null,
+      timeline: [],
+    },
     redFlags: [],
+    redFlagTriggered: false,
+    redFlagTriggeredAt: null,
   },
   aiSummary: {
-    status: 'draft', // 'draft' | 'confirmed'
+    status: 'draft', // 'draft' | 'physician-confirmed'
+    audit: {
+      createdAt: new Date().toISOString(),
+      lastEditedAt: null,
+      confirmedAt: null,
+      confirmedBy: null,
+    },
   },
+}
+
+function flattenText(value) {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.join(' ')
+  if (value && typeof value === 'object') return Object.values(value).map(flattenText).join(' ')
+  return ''
 }
 
 function detectRedFlags(text) {
@@ -66,16 +107,13 @@ export function KioskProvider({ children }) {
       }
       cursor[parts[parts.length - 1]] = value
 
-      // Re-run red flag detection whenever chiefComplaint or hpi text changes
-      const textToScan = [
-        next.intake.chiefComplaint,
-        next.intake.hpi?.site,
-        next.intake.hpi?.onset,
-        next.intake.hpi?.character,
-        next.intake.hpi?.severity,
-      ].filter(Boolean).join(' ')
-
-      next.intake.redFlags = detectRedFlags(textToScan)
+      const matches = detectRedFlags(flattenText(next.intake))
+      next.intake.redFlags = matches
+      next.intake.redFlagTriggered = matches.length > 0
+      next.intake.redFlagTriggeredAt = matches.length > 0
+        ? (next.intake.redFlagTriggeredAt || new Date().toISOString())
+        : null
+      next.aiSummary.audit.lastEditedAt = new Date().toISOString()
 
       return next
     })
@@ -92,23 +130,48 @@ export function KioskProvider({ children }) {
     setData((prev) => {
       const current = prev.intake.chiefComplaint
       const nextComplaint = current ? `${current}, ${symptom}` : symptom
-      const redFlags = detectRedFlags(nextComplaint)
+      const redFlags = detectRedFlags(flattenText({ ...prev.intake, chiefComplaint: nextComplaint }))
       return {
         ...prev,
         intake: {
           ...prev.intake,
           chiefComplaint: nextComplaint,
           redFlags,
+          redFlagTriggered: redFlags.length > 0,
+          redFlagTriggeredAt: redFlags.length > 0
+            ? (prev.intake.redFlagTriggeredAt || new Date().toISOString())
+            : null,
         },
       }
     })
   }, [])
 
   const confirmSummary = useCallback(() => {
-    setData((prev) => ({
-      ...prev,
-      aiSummary: { ...prev.aiSummary, status: 'confirmed' },
-    }))
+    setData((prev) => {
+      const confirmedAt = new Date().toISOString()
+      const payload = {
+        resourceType: 'Bundle',
+        type: 'document',
+        subject: { reference: `Patient/${prev.patient.abhaId || 'walk-in'}` },
+        timestamp: confirmedAt,
+        source: 'MediKiosk',
+        intake: prev.intake,
+      }
+      console.log('[MediKiosk FHIR / ABDM mock push]', payload)
+      return {
+        ...prev,
+        aiSummary: {
+          ...prev.aiSummary,
+          status: 'physician-confirmed',
+          audit: {
+            ...prev.aiSummary.audit,
+            confirmedAt,
+            confirmedBy: 'Doctor Dashboard',
+            lastEditedAt: confirmedAt,
+          },
+        },
+      }
+    })
   }, [])
 
   const resetIntake = useCallback(() => {
@@ -119,6 +182,7 @@ export function KioskProvider({ children }) {
     role,
     setRole,
     data,
+    sessionData: data,
     updateIntake,
     updatePatient,
     addSymptomTag,

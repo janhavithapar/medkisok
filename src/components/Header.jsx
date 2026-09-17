@@ -1,5 +1,5 @@
 import React from 'react'
-import { Stethoscope, User, LayoutDashboard } from 'lucide-react'
+import { Stethoscope, User, LayoutDashboard, HeartPulse } from 'lucide-react'
 import { useKiosk } from '../context/KioskContext.jsx'
 
 export default function Header() {
@@ -22,6 +22,13 @@ export default function Header() {
               ${role === 'kiosk' ? 'bg-medi-600 text-white shadow' : 'text-slate-600'}`}
           >
             <User size={16} /> Patient Kiosk
+          </button>
+          <button
+            onClick={() => setRole('nurse')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors min-h-0
+              ${role === 'nurse' ? 'bg-amber-500 text-white shadow' : 'text-slate-600'}`}
+          >
+            <HeartPulse size={16} /> Nurse Triage
           </button>
           <button
             onClick={() => setRole('doctor')}
