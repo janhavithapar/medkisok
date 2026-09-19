@@ -14,6 +14,8 @@ const RED_FLAG_RULES = [
 ]
 
 const initialState = {
+  selectedHospital: 'apollo-clinic',
+  activeDoctorId: 'dr-sharma',
   patient: {
     abhaId: '',
     consent: {
@@ -21,8 +23,11 @@ const initialState = {
       abhaLinking: false,
     },
     name: 'Ramesh',
+    age: '42',
+    gender: 'Male',
     language: 'hi',
     opdType: '',
+    assignedDoctorId: 'dr-sharma',
   },
   intake: {
     chiefComplaint: '',
@@ -79,7 +84,7 @@ function flattenText(value) {
   return ''
 }
 
-function detectRedFlags(text) {
+function detectRedFlags(text, intake = null) {
   if (!text) return []
   const lower = text.toLowerCase()
   const matched = []
@@ -88,12 +93,45 @@ function detectRedFlags(text) {
       matched.push(rule.flag)
     }
   })
+
+  const hpiText = flattenText(intake?.hpi || '').toLowerCase()
+  const complaint = String(intake?.chiefComplaint || '').toLowerCase()
+  const hasCardiacPattern = /chest|heart|छाती|நெஞ்சு|ఛాతీ|বুক|છાતી|ಎದೆ/.test(complaint)
+    && /arm|shoulder|jaw|back|radiat|sweat|nausea|lightheaded|बांह|जबड़ा|पसीना|मळमळ|கை|தாடை|வியர்வை|வாந்தி|చేయి|దవడ|చెమట|వికారం|হাত|চোয়াল|ঘাম|বমি|હાથ|જડબા|પરસેવો|નબળ|ಕೈ|ದವಡೆ|ಬೆವರು/.test(hpiText)
+  if (hasCardiacPattern && !matched.includes('Possible cardiac event - chest pain reported')) {
+    matched.push('Possible acute coronary syndrome pattern - immediate triage required')
+  }
+
+  const hasFastPattern = /stroke|weak|numb|face|speech|vision|कमजोर|सुन्न|चेहरा|बोल|நரம்பு|முகம்|பேச்சு|బలహీన|ముఖం|మాట|দুর্বল|মুখ|কথা|નબળ|ચહેરો|બોલ|ದೌರ್ಬಲ್ಯ|ಮುಖ|ಮಾತು/.test(`${complaint} ${hpiText}`)
+    && /sudden|minutes|hours|अचानक|मिनट|घंटे|திடீர்|நிமிடம்|மணி|అకస్మాత్తుగా|నిమిష|గంట|হঠাৎ|মিনিট|ঘণ্টা|અચાનક|મિનિટ|કલાક|ಇದ್ದಕ್ಕಿದ್ದಂತೆ|ನಿಮಿಷ|ಗಂಟೆ/.test(hpiText)
+  if (hasFastPattern && !matched.includes('Possible stroke symptoms')) {
+    matched.push('Possible FAST stroke pattern - immediate triage required')
+  }
   return matched
 }
 
 export function KioskProvider({ children }) {
   const [role, setRole] = useState('kiosk') // 'kiosk' | 'doctor'
   const [data, setData] = useState(initialState)
+  const doctors = [
+    { id: 'dr-sharma', name: 'Dr. Sharma', specialty: 'General Medicine' },
+    { id: 'dr-verma', name: 'Dr. Verma', specialty: 'Cardiology' },
+    { id: 'dr-patel', name: 'Dr. Patel', specialty: 'Family Medicine' },
+  ]
+  const hospitals = [
+    { id: 'apollo-clinic', name: 'Apollo Clinic' },
+    { id: 'city-general', name: 'City General Hospital' },
+    { id: 'aiims', name: 'AIIMS' },
+    { id: 'primary-health-center', name: 'Primary Health Center' },
+  ]
+
+  const setSelectedHospital = useCallback((selectedHospital) => {
+    setData((prev) => ({ ...prev, selectedHospital }))
+  }, [])
+
+  const setActiveDoctor = useCallback((activeDoctorId) => {
+    setData((prev) => ({ ...prev, activeDoctorId }))
+  }, [])
 
   // Generic dotted-path setter, e.g. updateIntake('hpi.site', 'Left knee')
   // or updateIntake('chiefComplaint', 'Chest pain since morning')
@@ -107,7 +145,7 @@ export function KioskProvider({ children }) {
       }
       cursor[parts[parts.length - 1]] = value
 
-      const matches = detectRedFlags(flattenText(next.intake))
+      const matches = detectRedFlags(flattenText(next.intake), next.intake)
       next.intake.redFlags = matches
       next.intake.redFlagTriggered = matches.length > 0
       next.intake.redFlagTriggeredAt = matches.length > 0
@@ -130,7 +168,8 @@ export function KioskProvider({ children }) {
     setData((prev) => {
       const current = prev.intake.chiefComplaint
       const nextComplaint = current ? `${current}, ${symptom}` : symptom
-      const redFlags = detectRedFlags(flattenText({ ...prev.intake, chiefComplaint: nextComplaint }))
+      const nextIntake = { ...prev.intake, chiefComplaint: nextComplaint }
+      const redFlags = detectRedFlags(flattenText(nextIntake), nextIntake)
       return {
         ...prev,
         intake: {
@@ -183,6 +222,10 @@ export function KioskProvider({ children }) {
     setRole,
     data,
     sessionData: data,
+    doctors,
+    hospitals,
+    setSelectedHospital,
+    setActiveDoctor,
     updateIntake,
     updatePatient,
     addSymptomTag,

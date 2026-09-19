@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 import { AlertTriangle, Camera, Check, FileText, LoaderCircle, Plus, ScanLine, Trash2, Upload } from 'lucide-react'
 import { useKiosk } from '../context/KioskContext.jsx'
 import DocumentTimeline from './DocumentTimeline.jsx'
+import { getLocale } from '../i18n.js'
 
 const MOCK_DOCUMENT = {
   type: 'lab',
@@ -21,6 +22,7 @@ const MOCK_DOCUMENT = {
 
 export default function Screen5DocumentScan({ onNext }) {
   const { sessionData, updateIntake } = useKiosk()
+  const locale = getLocale(sessionData.patient.language)
   const fileRef = useRef(null)
   const [processing, setProcessing] = useState(false)
   const [review, setReview] = useState(sessionData.intake.documents.currentReview)
@@ -85,22 +87,22 @@ export default function Screen5DocumentScan({ onNext }) {
         <div className="w-14 h-14 rounded-2xl bg-skyclin-50 flex items-center justify-center mx-auto mb-3">
           <FileText className="text-skyclin-600" size={28} />
         </div>
-        <h1 className="text-2xl font-bold text-slate-800">Scan medical documents</h1>
-        <p className="text-slate-500 mt-2">Bring old prescriptions and lab reports into your medical timeline.</p>
+        <h1 className="text-2xl font-bold text-slate-800">{locale.scanDocs}</h1>
+        <p className="text-slate-500 mt-2">{locale.scanDocsHelp}</p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3 mb-6">
         <button type="button" onClick={processDocument} disabled={processing} className="h-16 rounded-2xl bg-skyclin-600 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60">
           {processing ? <LoaderCircle className="animate-spin" size={22} /> : <Camera size={22} />}
-          {processing ? 'Processing...' : 'Scan Document'}
+          {processing ? locale.processing : locale.scan}
         </button>
         <label className="h-16 rounded-2xl border-2 border-skyclin-200 bg-white text-skyclin-700 font-bold flex items-center justify-center gap-2 cursor-pointer">
-          <Upload size={22} /> Upload document
+          <Upload size={22} /> {locale.upload}
           <input ref={fileRef} type="file" accept="image/*,.pdf" className="sr-only" onChange={handleUpload} />
         </label>
       </div>
 
-      {processing && <div className="rounded-2xl bg-skyclin-50 border border-skyclin-100 p-5 text-center text-skyclin-700 mb-6"><ScanLine className="mx-auto animate-pulse mb-2" size={28} /><p className="font-semibold">OCR processing...</p><p className="text-sm mt-1">Reading diagnoses, medicines, and lab values.</p></div>}
+      {processing && <div className="rounded-2xl bg-skyclin-50 border border-skyclin-100 p-5 text-center text-skyclin-700 mb-6"><ScanLine className="mx-auto animate-pulse mb-2" size={28} /><p className="font-semibold">{locale.ocr}</p><p className="text-sm mt-1">{locale.scanRead}</p></div>}
 
       {review && !processing && <ReviewCard review={review} alerts={alerts} onUpdate={updateReview} onMedicineUpdate={updateMedicine} onLabUpdate={updateLab} onSave={saveReview} saved={saved} />}
 
@@ -108,7 +110,7 @@ export default function Screen5DocumentScan({ onNext }) {
 
       <div className="mt-8 border-t border-slate-200 pt-5">
         <p className="text-xs text-slate-500 text-center">For physician review - not a diagnosis.</p>
-        <button type="button" onClick={onNext} className="w-full mt-4 h-14 rounded-2xl bg-medi-600 text-white font-bold flex items-center justify-center gap-2">Continue <Check size={20} /></button>
+        <button type="button" onClick={onNext} className="w-full mt-4 h-14 rounded-2xl bg-medi-600 text-white font-bold flex items-center justify-center gap-2">{locale.continue} <Check size={20} /></button>
       </div>
     </div>
   )

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Mic, MicOff } from 'lucide-react'
+import { useKiosk } from '../context/KioskContext.jsx'
+import { getLocale, getSpeechLocale } from '../i18n.js'
 
 /**
  * VoiceMic — persistent voice input affordance.
@@ -16,24 +18,64 @@ import { Mic, MicOff } from 'lucide-react'
  *  - size: 'sm' | 'lg' (default 'lg') controls tap target size
  */
 export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg' }) {
+  const { data } = useKiosk()
+  const locale = getLocale(data.patient.language)
+  const speechLocale = getSpeechLocale(data.patient.language)
   const [listening, setListening] = useState(false)
+  const [error, setError] = useState('')
   const timeoutRef = useRef(null)
+  const recognitionRef = useRef(null)
 
-  useEffect(() => () => clearTimeout(timeoutRef.current), [])
+  useEffect(() => () => {
+    clearTimeout(timeoutRef.current)
+    recognitionRef.current?.abort()
+  }, [])
 
   const mockTranscripts = [
-    'Chest pain since this morning',
-    'Fever and headache for two days',
-    'Stomach pain after eating',
-    'Cough and cold since yesterday',
+    locale.voiceChest,
+    locale.voiceFever,
+    locale.voiceStomach,
+    locale.voiceCough,
   ]
 
   function startListening() {
     if (listening) return
+    setError('')
     setListening(true)
 
-    // Mock: simulate ~1.8s of "listening" then return a canned transcript.
-    // Replace with real SpeechRecognition.start() + onresult handler.
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition()
+      recognition.lang = speechLocale
+      recognition.continuous = false
+      recognition.interimResults = false
+      recognition.maxAlternatives = 1
+      recognitionRef.current = recognition
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0]?.[0]?.transcript?.trim()
+        setListening(false)
+        recognitionRef.current = null
+        if (transcript) onResult?.(transcript)
+      }
+      recognition.onerror = (event) => {
+        setListening(false)
+        recognitionRef.current = null
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setError('Microphone permission is required')
+        } else if (event.error !== 'aborted' && event.error !== 'no-speech') {
+          setError('Voice input was not understood. Please try again.')
+        }
+      }
+      recognition.onend = () => {
+        setListening(false)
+        recognitionRef.current = null
+      }
+      recognition.start()
+      return
+    }
+
+    // Fallback for browsers without Web Speech API support.
     timeoutRef.current = setTimeout(() => {
       const transcript = mockTranscripts[Math.floor(Math.random() * mockTranscripts.length)]
       setListening(false)
@@ -43,6 +85,8 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
 
   function stopListening() {
     clearTimeout(timeoutRef.current)
+    recognitionRef.current?.stop()
+    recognitionRef.current = null
     setListening(false)
   }
 
@@ -55,7 +99,8 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
         type="button"
         onClick={listening ? stopListening : startListening}
         aria-pressed={listening}
-        aria-label={listening ? 'Stop listening' : label}
+        aria-label={listening ? locale.listening : label}
+        lang={speechLocale}
         className={`${dimension} rounded-full flex items-center justify-center shadow-md transition-all duration-200 active:scale-95
           ${listening
             ? 'bg-red-500 animate-pulse ring-4 ring-red-200'
@@ -65,7 +110,7 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
         {listening ? <MicOff size={iconSize} color="white" /> : <Mic size={iconSize} color="white" />}
       </button>
       <span className="text-xs font-medium text-slate-500 min-h-[16px]">
-        {listening ? 'Listening…' : label}
+        {listening ? locale.listening : error || label}
       </span>
     </div>
   )
@@ -76,6 +121,31 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
  * Replace with `window.speechSynthesis.speak(new SpeechSynthesisUtterance(text))`
  * for real text-to-speech prompts read aloud to the patient.
  */
-export function speak(text) {
-  console.log('[MediKiosk TTS mock]:', text)
+export function speak(text, language = 'en') {
+  if (!('speechSynthesis' in window)) {
+    console.log('[MediKiosk TTS unavailable]:', text)
+    return
+  }
+
+  const speech = window.speechSynthesis
+  const speechLocale = getSpeechLocale(language)
+  const speakNow = () => {
+    speech.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    const voices = speech.getVoices()
+    const exactVoice = voices.find((voice) => voice.lang.toLowerCase() === speechLocale.toLowerCase())
+    const regionalVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith(speechLocale.slice(0, 2).toLowerCase()))
+    utterance.lang = speechLocale
+    utterance.voice = exactVoice || regionalVoice || null
+    utterance.rate = 0.9
+    utterance.pitch = 1
+    speech.speak(utterance)
+  }
+
+  if (speech.getVoices().length > 0) {
+    speakNow()
+  } else {
+    speech.addEventListener('voiceschanged', speakNow, { once: true })
+    window.setTimeout(speakNow, 500)
+  }
 }

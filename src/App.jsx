@@ -32,7 +32,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50">
       <Header />
 
-      <main>
+      <main className="kiosk-shell">
         {role === 'kiosk' && (
           <>
             {currentStep === 'language' && <LanguageSelect onNext={goNext} />}

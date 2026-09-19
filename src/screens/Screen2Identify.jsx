@@ -7,13 +7,17 @@ import {
   ShieldCheck,
   Upload,
   Volume2,
+  ExternalLink,
 } from 'lucide-react'
 import { useKiosk } from '../context/KioskContext.jsx'
+import { getLocale } from '../i18n.js'
+import { speak } from '../components/VoiceMic.jsx'
 
 const KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
 
 export default function Screen2Identify({ onNext }) {
   const { data, updatePatient } = useKiosk()
+  const locale = getLocale(data.patient.language)
   const [hasAcceptedConsent, setHasAcceptedConsent] = useState(false)
   const [scanMode, setScanMode] = useState(false)
   const [scanMessage, setScanMessage] = useState('')
@@ -25,14 +29,7 @@ export default function Screen2Identify({ onNext }) {
   }
 
   function readConsent() {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      window.speechSynthesis.speak(
-        new SpeechSynthesisUtterance(
-          'We use your answers to help this hospital provide care. You can share your information with this hospital and optionally link it to your ABHA health record.'
-        )
-      )
-    }
+    speak(`${locale.shareHospital}. ${locale.shareHospitalHelp} ${locale.linkAbha}. ${locale.linkAbhaHelp}`, data.patient.language)
   }
 
   function setConsent(key, value) {
@@ -75,23 +72,23 @@ export default function Screen2Identify({ onNext }) {
           <div className="w-14 h-14 rounded-2xl bg-medi-100 flex items-center justify-center mx-auto mb-3">
             <ShieldCheck className="text-medi-600" size={28} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Your privacy choices</h1>
-          <p className="text-slate-500 mt-2">Please review how we use your information.</p>
+          <h1 className="text-2xl font-bold text-slate-800">{locale.privacy}</h1>
+          <p className="text-slate-500 mt-2">{locale.privacyHelp}</p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
           <ConsentChoice
             checked={consent.hospitalDataSharing}
             onChange={(value) => setConsent('hospitalDataSharing', value)}
-            title="Share with this hospital"
-            description="Allow the care team to use your answers for today's visit."
+            title={locale.shareHospital}
+            description={locale.shareHospitalHelp}
             required
           />
           <ConsentChoice
             checked={consent.abhaLinking}
             onChange={(value) => setConsent('abhaLinking', value)}
-            title="Link to ABHA health record"
-            description="Optionally connect this visit to your ABHA health record."
+            title={locale.linkAbha}
+            description={locale.linkAbhaHelp}
           />
         </div>
 
@@ -101,7 +98,7 @@ export default function Screen2Identify({ onNext }) {
           className="w-full mt-4 h-14 rounded-2xl border-2 border-medi-200 bg-medi-50 text-medi-700 font-semibold flex items-center justify-center gap-2"
         >
           <Volume2 size={20} />
-          Listen to this information
+          {locale.listen}
         </button>
         <button
           type="button"
@@ -109,7 +106,7 @@ export default function Screen2Identify({ onNext }) {
           disabled={!consent.hospitalDataSharing}
           className="w-full mt-3 h-14 rounded-2xl bg-medi-600 text-white font-bold disabled:opacity-40"
         >
-          Continue
+          {locale.continue}
         </button>
       </div>
     )
@@ -121,8 +118,8 @@ export default function Screen2Identify({ onNext }) {
         <div className="w-14 h-14 rounded-2xl bg-medi-100 flex items-center justify-center mx-auto mb-3">
           <QrCode className="text-medi-600" size={28} />
         </div>
-        <h1 className="text-2xl font-bold text-slate-800">Identify yourself</h1>
-        <p className="text-slate-500 mt-2">Use your ABHA ID or continue as a walk-in.</p>
+        <h1 className="text-2xl font-bold text-slate-800">{locale.identify}</h1>
+        <p className="text-slate-500 mt-2">{locale.identifyHelp}</p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3 mb-5">
@@ -131,10 +128,10 @@ export default function Screen2Identify({ onNext }) {
           onClick={() => setScanMode(true)}
           className={`h-16 rounded-2xl border-2 font-semibold flex items-center justify-center gap-2 ${scanMode ? 'border-medi-600 bg-medi-50 text-medi-700' : 'border-slate-200 bg-white text-slate-700'}`}
         >
-          <Camera size={21} /> Scan ABHA QR
+          <Camera size={21} /> {locale.scanQr}
         </button>
         <label className="h-16 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-semibold flex items-center justify-center gap-2 cursor-pointer">
-          <Upload size={21} /> Upload QR image
+          <Upload size={21} /> {locale.uploadQr}
           <input type="file" accept="image/*" className="sr-only" onChange={handleUpload} />
         </label>
       </div>
@@ -142,18 +139,18 @@ export default function Screen2Identify({ onNext }) {
       {scanMode && (
         <div className="rounded-2xl border-2 border-dashed border-medi-300 bg-medi-50 p-6 text-center mb-5">
           <Camera className="mx-auto text-medi-600 mb-2" size={34} />
-          <p className="font-semibold text-slate-700">Camera preview</p>
-          <p className="text-sm text-slate-500 mt-1">Mock scanner ready for ABHA QR verification.</p>
+          <p className="font-semibold text-slate-700">{locale.scanQr}</p>
+          <p className="text-sm text-slate-500 mt-1">{locale.identifyHelp}</p>
         </div>
       )}
       {scanMessage && <p className="text-sm text-medi-700 mb-4 text-center">{scanMessage}</p>}
 
       <div className="bg-white border border-slate-200 rounded-2xl p-5">
         <label htmlFor="abha-id" className="block text-sm font-semibold text-slate-600 mb-2">
-          Enter ABHA ID manually
+          {locale.enterAbha}
         </label>
         <div id="abha-id" className="h-14 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-xl tracking-widest text-slate-800">
-          {manualId || 'Enter digits'}
+          {manualId || locale.enterDigits}
         </div>
         <div className="grid grid-cols-3 gap-2 mt-4">
           {KEYPAD.map((digit) => (
@@ -168,11 +165,15 @@ export default function Screen2Identify({ onNext }) {
       </div>
 
       <button type="button" onClick={continueWithId} disabled={!manualId} className="w-full mt-4 h-14 rounded-2xl bg-medi-600 text-white font-bold disabled:opacity-40 flex items-center justify-center gap-2">
-        <Check size={20} /> Continue with ABHA
+        <Check size={20} /> {locale.continueAbha}
       </button>
       <button type="button" onClick={continueWalkIn} className="w-full mt-3 h-14 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-bold">
-        Continue without ABHA (Walk-in)
+        {locale.walkIn}
       </button>
+      <a href="https://abha.abdm.gov.in" target="_blank" rel="noreferrer" className="mt-5 rounded-2xl border border-skyclin-100 bg-skyclin-50 p-4 flex items-start gap-3 text-skyclin-800 transition hover:border-skyclin-300">
+        <ExternalLink size={20} className="shrink-0 mt-0.5" />
+        <span><strong className="block">ABHA help</strong><span className="text-sm">Need help creating or finding your ABHA ID? Visit the official government portal.</span></span>
+      </a>
     </div>
   )
 }
