@@ -13,11 +13,58 @@ const RED_FLAG_RULES = [
   { keywords: ['unconscious', 'fainted', 'passed out'], flag: 'Loss of consciousness reported' },
 ]
 
+export const DEMO_ACCOUNTS = [
+  {
+    id: 'user-patient-1',
+    phone: '9876543210',
+    password: 'password123',
+    role: 'patient',
+    name: 'Ramesh Sharma',
+    age: '42',
+    gender: 'Male',
+    abhaId: '14-1234-5678-9012',
+    language: 'hi',
+  },
+  {
+    id: 'user-patient-2',
+    phone: '9123456789',
+    password: 'password123',
+    role: 'patient',
+    name: 'Priya Patel',
+    age: '29',
+    gender: 'Female',
+    abhaId: '14-9876-5432-1098',
+    language: 'en',
+  },
+  {
+    id: 'user-doctor-1',
+    phone: '9811122233',
+    password: 'doctor123',
+    role: 'doctor',
+    name: 'Dr. Sharma',
+    specialty: 'General Medicine',
+    doctorId: 'dr-sharma',
+  },
+  {
+    id: 'user-nurse-1',
+    phone: '9822233344',
+    password: 'nurse123',
+    role: 'nurse',
+    name: 'Sister Anjali',
+    hospitalId: 'apollo-clinic',
+  },
+]
+
 const initialState = {
   selectedHospital: 'apollo-clinic',
   activeDoctorId: 'dr-sharma',
+  auth: {
+    isAuthenticated: false,
+    user: null,
+  },
   patient: {
     abhaId: '',
+    phone: '',
     consent: {
       hospitalDataSharing: false,
       abhaLinking: false,
@@ -113,6 +160,43 @@ function detectRedFlags(text, intake = null) {
 export function KioskProvider({ children }) {
   const [role, setRole] = useState('kiosk') // 'kiosk' | 'doctor'
   const [data, setData] = useState(initialState)
+  const [users, setUsers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medikiosk_users')
+      if (saved) return JSON.parse(saved)
+    } catch (e) {
+      console.warn('Failed to parse saved users', e)
+    }
+    return DEMO_ACCOUNTS
+  })
+  const [geminiApiKey, setGeminiApiKeyState] = useState(() => {
+    try {
+      return (
+        localStorage.getItem('medikiosk_gemini_key') ||
+        import.meta.env.VITE_GEMINI_API_KEY ||
+        ''
+      )
+    } catch {
+      return import.meta.env.VITE_GEMINI_API_KEY || ''
+    }
+  })
+
+  const setGeminiApiKey = useCallback((newKey) => {
+    const clean = (newKey || '').trim()
+    setGeminiApiKeyState(clean)
+    try {
+      if (clean) {
+        localStorage.setItem('medikiosk_gemini_key', clean)
+      } else {
+        localStorage.removeItem('medikiosk_gemini_key')
+      }
+    } catch (e) {
+      console.warn('Failed to save gemini key in localStorage', e)
+    }
+  }, [])
+
+
+
   const doctors = [
     { id: 'dr-sharma', name: 'Dr. Sharma', specialty: 'General Medicine' },
     { id: 'dr-verma', name: 'Dr. Verma', specialty: 'Cardiology' },
@@ -217,13 +301,117 @@ export function KioskProvider({ children }) {
     setData(initialState)
   }, [])
 
+  const loginWithPhone = useCallback((phone, password) => {
+    const cleanPhone = String(phone).replace(/\D/g, '').slice(-10)
+    const user = users.find((u) => u.phone.replace(/\D/g, '').slice(-10) === cleanPhone && u.password === password)
+    if (!user) {
+      return { success: false, error: 'Invalid mobile number or password.' }
+    }
+    setData((prev) => {
+      const next = {
+        ...prev,
+        auth: { isAuthenticated: true, user },
+      }
+      if (user.role === 'patient') {
+        next.patient = {
+          ...prev.patient,
+          name: user.name || prev.patient.name,
+          phone: user.phone,
+          age: user.age || prev.patient.age,
+          gender: user.gender || prev.patient.gender,
+          abhaId: user.abhaId || prev.patient.abhaId,
+        }
+      }
+      return next
+    })
+    if (user.role === 'doctor') {
+      setRole('doctor')
+      if (user.doctorId) setActiveDoctor(user.doctorId)
+    } else if (user.role === 'nurse') {
+      setRole('nurse')
+    } else {
+      setRole('kiosk')
+    }
+    return { success: true, user }
+  }, [users, setActiveDoctor])
+
+  const registerWithPhone = useCallback((accountData) => {
+    const { phone, password, name, age, gender, role: userRole = 'patient', abhaId = '' } = accountData
+    const cleanPhone = String(phone).replace(/\D/g, '').slice(-10)
+    if (cleanPhone.length !== 10) {
+      return { success: false, error: 'Please enter a valid 10-digit mobile number.' }
+    }
+    if (!password || password.length < 4) {
+      return { success: false, error: 'Password must be at least 4 characters.' }
+    }
+    const exists = users.some((u) => u.phone.replace(/\D/g, '').slice(-10) === cleanPhone)
+    if (exists) {
+      return { success: false, error: 'An account with this mobile number already exists. Please sign in.' }
+    }
+
+    const newUser = {
+      id: `user-${Date.now()}`,
+      phone: cleanPhone,
+      password,
+      name: name || 'Patient',
+      age: age || '',
+      gender: gender || 'Other',
+      role: userRole,
+      abhaId,
+    }
+
+    const updatedUsers = [...users, newUser]
+    setUsers(updatedUsers)
+    try {
+      localStorage.setItem('medikiosk_users', JSON.stringify(updatedUsers))
+    } catch (e) {
+      console.warn('Failed to save users', e)
+    }
+
+    setData((prev) => ({
+      ...prev,
+      auth: { isAuthenticated: true, user: newUser },
+      patient: userRole === 'patient' ? {
+        ...prev.patient,
+        name: newUser.name,
+        phone: newUser.phone,
+        age: newUser.age,
+        gender: newUser.gender,
+        abhaId: newUser.abhaId,
+      } : prev.patient,
+    }))
+
+    if (userRole === 'doctor') {
+      setRole('doctor')
+    } else if (userRole === 'nurse') {
+      setRole('nurse')
+    } else {
+      setRole('kiosk')
+    }
+
+    return { success: true, user: newUser }
+  }, [users])
+
+  const logout = useCallback(() => {
+    setData((prev) => ({
+      ...prev,
+      auth: { isAuthenticated: false, user: null },
+    }))
+  }, [])
+
   const value = {
     role,
     setRole,
     data,
     sessionData: data,
+    auth: data.auth,
+    currentUser: data.auth?.user || null,
     doctors,
     hospitals,
+    demoAccounts: DEMO_ACCOUNTS,
+    loginWithPhone,
+    registerWithPhone,
+    logout,
     setSelectedHospital,
     setActiveDoctor,
     updateIntake,
@@ -231,6 +419,8 @@ export function KioskProvider({ children }) {
     addSymptomTag,
     confirmSummary,
     resetIntake,
+    geminiApiKey,
+    setGeminiApiKey,
   }
 
   return <KioskContext.Provider value={value}>{children}</KioskContext.Provider>

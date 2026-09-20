@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Header from './components/Header.jsx'
 import LanguageSelect from './screens/LanguageSelect.jsx'
 import Screen2Identify from './screens/Screen2Identify.jsx'
+import IntakeChoice from './screens/IntakeChoice.jsx'
 import Screen3Intake from './screens/Screen3Intake.jsx'
 import Screen4Ayush from './screens/Screen4Ayush.jsx'
 import Screen5DocumentScan from './screens/Screen5DocumentScan.jsx'
@@ -9,14 +10,15 @@ import DoctorDashboard from './screens/DoctorDashboard.jsx'
 import NurseTriage from './screens/NurseTriage.jsx'
 import DoctorConsultation from './screens/DoctorConsultation.jsx'
 import { useKiosk } from './context/KioskContext.jsx'
+import { CheckCircle2, FileText, ArrowRight, RotateCcw, Stethoscope } from 'lucide-react'
 
-// Mock "router" for the patient kiosk flow — replace with react-router
-// if/when the app grows past a handful of linear screens.
-const KIOSK_STEPS = ['language', 'identify', 'intake', 'opd', 'ayush', 'documents', 'placeholder']
+// Steps array for the patient kiosk flow
+const KIOSK_STEPS = ['language', 'identify', 'choice', 'intake', 'opd', 'ayush', 'documents', 'complete']
 
 export default function App() {
-  const { role, data, updatePatient } = useKiosk()
+  const { role, data, updatePatient, resetIntake } = useKiosk()
   const [stepIndex, setStepIndex] = useState(0)
+  const [intakeMode, setIntakeMode] = useState('full') // 'full' | 'upload-only'
 
   function goNext() {
     setStepIndex((i) => Math.min(i + 1, KIOSK_STEPS.length - 1))
@@ -24,6 +26,27 @@ export default function App() {
 
   function goBack() {
     setStepIndex((i) => Math.max(i - 1, 0))
+  }
+
+  function goToStep(stepName) {
+    const idx = KIOSK_STEPS.indexOf(stepName)
+    if (idx !== -1) setStepIndex(idx)
+  }
+
+  function handleSelectFull() {
+    setIntakeMode('full')
+    goToStep('intake')
+  }
+
+  function handleSelectUpload() {
+    setIntakeMode('upload-only')
+    goToStep('documents')
+  }
+
+  function handleRestart() {
+    resetIntake()
+    setIntakeMode('full')
+    setStepIndex(0)
   }
 
   const currentStep = KIOSK_STEPS[stepIndex]
@@ -37,11 +60,34 @@ export default function App() {
           <>
             {currentStep === 'language' && <LanguageSelect onNext={goNext} />}
             {currentStep === 'identify' && <Screen2Identify onNext={goNext} />}
+            {currentStep === 'choice' && (
+              <IntakeChoice
+                onSelectFull={handleSelectFull}
+                onSelectUpload={handleSelectUpload}
+                onBack={() => goToStep('identify')}
+              />
+            )}
             {currentStep === 'intake' && <Screen3Intake onNext={goNext} />}
             {currentStep === 'opd' && <OpdSelect onSelect={goNext} updatePatient={updatePatient} />}
-            {currentStep === 'ayush' && (data.patient.opdType === 'ayurvedic' ? <Screen4Ayush onNext={goNext} onBack={goBack} /> : <SkipAyush onNext={goNext} />)}
-            {currentStep === 'documents' && <Screen5DocumentScan onNext={goNext} />}
-            {currentStep === 'placeholder' && <PlaceholderScreen />}
+            {currentStep === 'ayush' && (
+              data.patient.opdType === 'ayurvedic'
+                ? <Screen4Ayush onNext={goNext} onBack={goBack} />
+                : <SkipAyush onNext={goNext} />
+            )}
+            {currentStep === 'documents' && (
+              <Screen5DocumentScan
+                onNext={goNext}
+                onBack={() => (intakeMode === 'upload-only' ? goToStep('choice') : (data.patient.opdType === 'ayurvedic' ? goToStep('ayush') : goToStep('opd')))}
+              />
+            )}
+            {currentStep === 'complete' && (
+              <IntakeCompletion
+                intakeMode={intakeMode}
+                patientName={data.patient.name}
+                onStartFull={handleSelectFull}
+                onRestart={handleRestart}
+              />
+            )}
           </>
         )}
 
@@ -52,18 +98,49 @@ export default function App() {
   )
 }
 
-// TODO: Build out remaining intake screens here, e.g.:
-// - HPI detail capture (site / onset / character / severity)
-// - Drug & allergy history capture
-// - Vitals capture
-// - Review & submit to doctor
-function PlaceholderScreen() {
+function IntakeCompletion({ intakeMode, patientName, onStartFull, onRestart }) {
+  const isUploadOnly = intakeMode === 'upload-only'
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-      <p className="text-slate-400 font-medium">
-        [Placeholder] Next intake step goes here — e.g. HPI details, drug &amp;
-        allergy history, vitals, review &amp; submit.
+    <div className="max-w-2xl mx-auto px-4 py-16 text-center animate-fade-in">
+      <div className="w-20 h-20 rounded-3xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-5 shadow-sm">
+        <CheckCircle2 size={44} />
+      </div>
+
+      <span className="inline-block px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider mb-2">
+        {patientName ? `Patient: ${patientName}` : 'Patient Checked In'}
+      </span>
+
+      <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
+        {isUploadOnly ? 'Medical History Uploaded Successfully!' : 'Intake & History Completed!'}
+      </h1>
+
+      <p className="text-slate-500 mt-2.5 max-w-md mx-auto text-sm sm:text-base">
+        {isUploadOnly
+          ? 'Your medical documents and lab records have been processed and added to your timeline for physician review.'
+          : 'Your consultation intake answers and medical documents have been saved and assigned to the care team.'}
       </p>
+
+      <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center max-w-md mx-auto">
+        {isUploadOnly && (
+          <button
+            type="button"
+            onClick={onStartFull}
+            className="h-14 px-6 rounded-2xl bg-medi-600 hover:bg-medi-700 text-white font-bold flex items-center justify-center gap-2 shadow-md shadow-medi-600/20 transition-all"
+          >
+            <Stethoscope size={20} />
+            <span>Answer Consultation Questions</span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onRestart}
+          className="h-14 px-6 rounded-2xl border-2 border-slate-200 hover:border-slate-300 bg-white text-slate-700 font-bold flex items-center justify-center gap-2 transition-colors"
+        >
+          <RotateCcw size={18} />
+          <span>Done / Finish</span>
+        </button>
+      </div>
     </div>
   )
 }
