@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Header from './components/Header.jsx'
 import LanguageSelect from './screens/LanguageSelect.jsx'
 import Screen2Identify from './screens/Screen2Identify.jsx'
@@ -16,9 +16,25 @@ import { CheckCircle2, FileText, ArrowRight, RotateCcw, Stethoscope } from 'luci
 const KIOSK_STEPS = ['language', 'identify', 'choice', 'intake', 'opd', 'ayush', 'documents', 'complete']
 
 export default function App() {
-  const { role, data, updatePatient, resetIntake } = useKiosk()
+  const { role, setRole, data, updatePatient, resetIntake, logout } = useKiosk()
   const [stepIndex, setStepIndex] = useState(0)
   const [intakeMode, setIntakeMode] = useState('full') // 'full' | 'upload-only'
+
+  // When user logs out, immediately return to identification / sign-in screen
+  const prevAuthRef = useRef(data.auth?.isAuthenticated)
+  useEffect(() => {
+    if (prevAuthRef.current && !data.auth?.isAuthenticated) {
+      setStepIndex(1)
+      setIntakeMode('full')
+    }
+    prevAuthRef.current = data.auth?.isAuthenticated
+  }, [data.auth?.isAuthenticated])
+
+  function handleSignOut() {
+    logout()
+    setIntakeMode('full')
+    setStepIndex(1)
+  }
 
   function goNext() {
     setStepIndex((i) => Math.min(i + 1, KIOSK_STEPS.length - 1))
@@ -53,13 +69,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header />
+      <Header onSignOut={handleSignOut} />
 
       <main className="kiosk-shell">
         {role === 'kiosk' && (
           <>
             {currentStep === 'language' && <LanguageSelect onNext={goNext} />}
-            {currentStep === 'identify' && <Screen2Identify onNext={goNext} />}
+            {currentStep === 'identify' && <Screen2Identify onNext={goNext} onBack={goBack} />}
             {currentStep === 'choice' && (
               <IntakeChoice
                 onSelectFull={handleSelectFull}

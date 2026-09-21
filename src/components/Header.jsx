@@ -3,9 +3,14 @@ import { Stethoscope, User, LayoutDashboard, HeartPulse, LogIn, LogOut } from 'l
 import { useKiosk } from '../context/KioskContext.jsx'
 import AuthModal from './AuthModal.jsx'
 
-export default function Header() {
+export default function Header({ onSignOut }) {
   const { role, setRole, data, hospitals, doctors, setSelectedHospital, setActiveDoctor, currentUser, logout } = useKiosk()
   const [isAuthOpen, setIsAuthOpen] = useState(false)
+
+  function handleSignOutClick() {
+    logout()
+    onSignOut?.()
+  }
 
   return (
     <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
@@ -65,12 +70,13 @@ export default function Header() {
             </span>
             <button
               type="button"
-              onClick={logout}
+              onClick={handleSignOutClick}
               title="Sign Out"
               aria-label="Sign Out"
-              className="p-1 text-slate-400 hover:text-red-600 rounded-full transition-colors min-h-0"
+              className="flex items-center gap-1 text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg sm:rounded-full transition-colors min-h-0 ml-1"
             >
-              <LogOut size={14} />
+              <LogOut size={13} />
+              <span>Sign Out</span>
             </button>
           </div>
         ) : (

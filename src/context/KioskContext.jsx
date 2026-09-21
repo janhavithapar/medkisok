@@ -69,10 +69,10 @@ const initialState = {
       hospitalDataSharing: false,
       abhaLinking: false,
     },
-    name: 'Ramesh',
-    age: '42',
+    name: '',
+    age: '',
     gender: 'Male',
-    language: 'hi',
+    language: 'en',
     opdType: '',
     assignedDoctorId: 'dr-sharma',
   },
@@ -394,9 +394,23 @@ export function KioskProvider({ children }) {
 
   const logout = useCallback(() => {
     setData((prev) => ({
-      ...prev,
+      ...initialState,
+      selectedHospital: prev.selectedHospital,
+      activeDoctorId: prev.activeDoctorId,
       auth: { isAuthenticated: false, user: null },
+      patient: {
+        ...initialState.patient,
+        language: prev.patient?.language || 'en',
+      },
+      intake: {
+        ...initialState.intake,
+        documents: {
+          currentReview: null,
+          timeline: [],
+        },
+      },
     }))
+    setRole('kiosk')
   }, [])
 
   const value = {

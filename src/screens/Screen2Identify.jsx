@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Camera,
   Check,
@@ -16,6 +16,7 @@ import {
   Sparkles,
   AlertCircle,
   Smartphone,
+  ArrowLeft,
 } from 'lucide-react'
 import { useKiosk } from '../context/KioskContext.jsx'
 import { getLocale } from '../i18n.js'
@@ -23,7 +24,7 @@ import { speak } from '../components/VoiceMic.jsx'
 
 const KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
 
-export default function Screen2Identify({ onNext }) {
+export default function Screen2Identify({ onNext, onBack }) {
   const { data, updatePatient, loginWithPhone, registerWithPhone, demoAccounts } = useKiosk()
   const locale = getLocale(data.patient.language)
 
@@ -43,6 +44,14 @@ export default function Screen2Identify({ onNext }) {
   const [scanMode, setScanMode] = useState(false)
   const [scanMessage, setScanMessage] = useState('')
   const [manualId, setManualId] = useState(data.patient.abhaId || '')
+
+  // Keep state cleanly in sync when session resets (e.g. on logout)
+  useEffect(() => {
+    setMobilePhone(data.patient.phone || '')
+    setRegName(data.patient.name || '')
+    setRegAge(data.patient.age || '')
+    setManualId(data.patient.abhaId || '')
+  }, [data.patient.phone, data.patient.name, data.patient.age, data.patient.abhaId])
 
   const consent = data.patient.consent || {
     hospitalDataSharing: false,
@@ -92,6 +101,8 @@ export default function Screen2Identify({ onNext }) {
     const demo = demoAccounts?.find((a) => a.role === 'patient') || { phone: '9876543210', password: 'password123' }
     setMobilePhone(demo.phone)
     setMobilePassword(demo.password)
+    setRegName(demo.name || 'Ramesh Kumar')
+    setRegAge(demo.age || '42')
     setConsent('hospitalDataSharing', true)
     setAuthError('')
   }
@@ -157,6 +168,17 @@ export default function Screen2Identify({ onNext }) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-4 flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors min-h-0 py-1"
+        >
+          <ArrowLeft size={16} />
+          <span>{locale.back || 'Back'}</span>
+        </button>
+      )}
+
       <div className="text-center mb-6">
         <div className="w-14 h-14 rounded-2xl bg-medi-100 flex items-center justify-center mx-auto mb-3">
           {idMethod === 'mobile' ? (
