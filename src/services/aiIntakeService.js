@@ -4,295 +4,331 @@
  * and prior answers. Supports Google Gemini API with seamless built-in smart engine fallback.
  */
 
-// Comprehensive clinical knowledge tree for 20+ complaint categories
+// Comprehensive clinical taxonomy covering a wide range of patient complaints.
+const MEDICAL_COMPLAINT_PATTERNS = [
+  { category: 'cardiac', matcher: /chest pain|chest discomfort|chest tightness|heart|palpitation|heartbeat|flutter|pressure in chest|pain in chest|shortness of breath|breathlessness|difficulty breathing|arm pain|jaw pain|back pain with chest|छाती|हृदय|धड़कन|सांस फूलना|धड़कना/ },
+  { category: 'respiratory', matcher: /cough|cold|fever|flu|sneeze|runny nose|congestion|wheeze|asthma|bronchitis|pneumonia|phlegm|breathing issue|shortness of breath|खांसी|जुकाम|बुखार|सांस|कफ|दमा|सांस लेने में परेशानी/ },
+  { category: 'neurological', matcher: /headache|migraine|dizzy|dizziness|vertigo|faint|fainting|numb|numbness|tingling|weakness|seizure|speech change|balance issue|sudden severe headache|चक्कर|सिरदर्द|माथा|बेहोशी|सुन्न|कमजोरी|बोलने में|संतुलन|तंत्रिका/ },
+  { category: 'abdominal', matcher: /stomach pain|abdominal pain|belly pain|vomit|nausea|diarrhea|constipation|gas|acid|indigestion|loose motion|bloating|gastro|appendicitis|पेट दर्द|उल्टी|मतली|दस्त|कब्ज|गैस|अम्ल|पेट फूलना|पाचन/ },
+  { category: 'musculoskeletal', matcher: /knee pain|joint pain|back pain|shoulder pain|ankle pain|sprain|fracture|bone pain|hip pain|neck pain|swollen joint|muscle pain|leg pain|arm pain|घुटना|जोड़|कमर|हाथ|पैर|मांसपेशी|आंत्र / },
+  { category: 'dental', matcher: /tooth pain|gum pain|jaw pain|mouth pain|dental|teeth|wisdom tooth|gum swelling|दांत|मसूड़े|जबड़ा|मुंह|मौखिक/ },
+  { category: 'dermatology', matcher: /rash|allergy|itch|itching|skin|boil|pimple|spots|hives|urticaria|dry skin|redness|blisters|त्वचा|खुजली|दाने|फोड़ा|रैश|शरीर पर लालपन/ },
+  { category: 'ophthalmology', matcher: /eye pain|red eye|blurred vision|vision problem|glasses|specs|contact lens|watering eye|eye irritation|double vision|blind spot|आंख दर्द|आंख लाल|धुंधली दृष्टि|चश्मा|आंख|दृष्टि/ },
+  { category: 'ent', matcher: /ear pain|hearing issue|sore throat|voice change|sinus|tonsil|swallow pain|nasal blockage|runny nose|cough with throat pain|कान दर्द|गला दर्द|नाक बंद|साइनस|स्वर|गला|सिर से/ },
+  { category: 'endocrine', matcher: /thyroid|diabetes|blood sugar|weight gain|weight loss|fatigue|excess thirst|urination|polyuria|high sugar|sugar issue|शुगर|थायरॉइड|तनाव|प्यास|उपवास|वजन/ },
+  { category: 'urology', matcher: /urinary pain|burning urine|frequent urination|blood in urine|UTI|pelvic pain|urine infection|pain while urinating|पेशाब दर्द|पेशाब करते समय जलन|बार-बार पेशाब|मूत्र|यूरीन/ },
+  { category: 'gynecology', matcher: /period pain|menstrual pain|pregnancy|abdominal pain in lower abdomen|vaginal discharge|bleeding|pcos|ovarian pain|महिलाओं|माहवारी|गर्भावस्था|प्रेग्नेंसी|योनि|रक्तस्राव/ },
+  { category: 'psychiatric', matcher: /anxiety|panic|depression|sadness|insomnia|sleep problem|stress|panic attack|mental health|low mood|घबराहट|चिंता|अवसाद|नींद|मानसिक|तनाव/ },
+  { category: 'infectious', matcher: /fever|chills|body ache|sweating|cold|flu|sore throat|infection|high temperature|bacterial|viral|बुखार|ठंड|सर्दी|शरीर दर्द|पसीना|संक्रमण/ },
+  { category: 'pediatric', matcher: /child|baby|kid|infant|fever in child|vomiting child|rash in child|pediatric|बच्चा|शिशु|किड|दादा|दादी/ },
+  { category: 'geriatric', matcher: /elderly|aged parent|old age|weakness in old age|fall|memory loss|confusion|geriatric|वरिष्ठ|बुजुर्ग|मेमोरी|भूलना|गिरना/ },
+  { category: 'general', matcher: /fatigue|tired|weak|low energy|sleepiness|exhaustion|feeling unwell|general weakness|thirst|body ache|overall discomfort|थकान|कमजोरी|अस्वस्थ|सारी ऊर्जा कम|शरीर दर्द/ },
+]
+
+const RANDOM_CHAT_PATTERNS = [
+  /hello|hi there|hey|good morning|good evening|what is the weather|weather forecast|how are you|who are you|what's up|joke|funny|random|hello world|bye|thank you|thanks|play music|what time|what's the time|tell me a joke|i am bored|i am fine|not feeling well/,
+  /weather|temperature outside|rain today|sunny|cloudy|storm|traffic|news|football|movie|song|game|math|programming|computer|why is the sky|who won/,
+]
+
+const MEDICAL_REDIRECT_TEXT = {
+  en: 'I can only assist with medical symptoms and hospital intake. Please tell me what health issue or pain you are experiencing today.',
+  hi: 'मैं केवल मेडिकल लक्षणों और अस्पताल की intake में मदद कर सकता हूँ। कृपया बताएं कि आज आपको कौन सी स्वास्थ्य समस्या या दर्द है।',
+  mr: 'मी फक्त वैद्यकीय लक्षणे आणि हॉस्पिटल इनटेकमध्ये मदत करू शकतो. कृपया सांगा आज तुम्हाला कोणती आरोग्य समस्या किंवा वेदना आहे.',
+  ta: 'மருத்துவ அறிகுறிகள் மற்றும் மருத்துவமனை intakeக்கு மட்டுமே நான் உதவ முடியும். இன்று உங்களுக்கு என்ன உடல்நலப் பிரச்சனை அல்லது வலி இருக்கிறது என்று சொல்லுங்கள்.',
+  te: 'నేను వైద్య లక్షణాలు మరియు ఆసుపత్రి intakeకు మాత్రమే సహాయపడగలను. మీరు今日 ఏ ఆరోగ్య సమస్య లేదా నొప్పిని అనుభవిస్తున్నారు? చెప్పండి.',
+  bn: 'আমি কেবল মেডিকেল উপসর্গ ও হাসপাতাল ইন্টেক-এ সাহায্য করতে পারি। দয়া করে বলুন আজ আপনার কোন স্বাস্থ্য সমস্যা বা ব্যথা হচ্ছে।',
+  gu: 'હું ફક્ત તબીબી લક્ષણો અને હૉસ્પિટલ ઈન્ટેકમાં મદદ કરી શકું છું. કૃપા કરીને કહો કે આજે તમને કઈ આરોગ્ય સમસ્યા અથવા દુખાવો છે.',
+  kn: 'ನಾನು ಮಾತ್ರ ವೈದ್ಯಕೀಯ ಲಕ್ಷಣಗಳು ಮತ್ತು ಆಸ್ಪತ್ರೆ intakeಗೆ ಸಹಾಯ ಮಾಡಬಲ್ಲೆ. ದಯವಿಟ್ಟು ತಿಳಿಸಿ ನೀವು ಇಂದು ಯಾವ ಆರೋಗ್ಯ ಸಮಸ್ಯೆ ಅಥವಾ ನೋವು ಅನುಭವಿಸುತ್ತಿದ್ದೀರಿ.',
+}
+
+export function detectPrimaryComplaint(text = '') {
+  const clean = String(text || '').trim().toLowerCase()
+  if (!clean) return null
+
+  const normalized = clean.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+  const matched = MEDICAL_COMPLAINT_PATTERNS.find(({ matcher }) => matcher.test(clean))
+  if (!matched) return { category: 'general', complaint: normalized.slice(0, 80) || 'general health concern' }
+
+  const conditions = [
+    { pattern: /headache|migraine|sudden severe headache|सिरदर्द|माथा/, category: 'neurological', complaint: 'headache' },
+    { pattern: /chest pain|chest discomfort|chest tightness|pressure in chest|heart|palpitation|shortness of breath|breathlessness|छाती|हृदय|सांस फूलना|धड़कन/, category: 'cardiac', complaint: 'chest pain' },
+    { pattern: /cough|cold|fever|flu|sneeze|runny nose|congestion|wheeze|phlegm|खांसी|जुकाम|बुखार|कफ|सांस/, category: 'respiratory', complaint: 'cough or respiratory symptoms' },
+    { pattern: /stomach pain|abdominal pain|belly pain|vomit|nausea|diarrhea|constipation|gas|acid|indigestion|loose motion|pyloric|पेट दर्द|उल्टी|मतली|दस्त|कब्ज|गैस|अम्ल/, category: 'abdominal', complaint: 'abdominal pain' },
+    { pattern: /knee pain|joint pain|back pain|shoulder pain|ankle pain|sprain|fracture|hip pain|neck pain|muscle pain|leg pain|arm pain|घुटना|कमर|जोड़|हड्डी|मांसपेशी/, category: 'musculoskeletal', complaint: 'musculoskeletal pain' },
+    { pattern: /tooth pain|gum pain|jaw pain|mouth pain|dental|teeth|wisdom|दांत|मसूड़े|जबड़ा|मुंह/, category: 'dental', complaint: 'dental pain' },
+    { pattern: /rash|allergy|itch|itching|skin|boil|pimple|spots|hives|urticaria|dry skin|blisters|त्वचा|खुजली|दाने|फोड़ा|रैश/, category: 'dermatology', complaint: 'skin complaint' },
+    { pattern: /eye pain|red eye|blurred vision|vision problem|glasses|specs|contact lens|watering eye|eye irritation|double vision|आंख दर्द|धुंधली दृष्टि|चश्मा|आंख/, category: 'ophthalmology', complaint: 'eye complaint' },
+    { pattern: /ear pain|hearing issue|sore throat|voice change|sinus|tonsil|swallow pain|nasal blockage|runny nose|कान दर्द|गला दर्द|नाक बंद|साइनस|गला/, category: 'ent', complaint: 'ENT complaint' },
+    { pattern: /fatigue|tired|weak|low energy|sleepiness|exhaustion|feeling unwell|general weakness|thirst|overall discomfort|थकान|कमजोरी|अस्वस्थ|शरीर दर्द/, category: 'general', complaint: 'general fatigue or weakness' },
+    { pattern: /dizziness|vertigo|faint|fainting|numbness|tingling|weakness|balance issue|जंग|चक्कर|बेहोशी|सुन्न|संतुलन/, category: 'neurological', complaint: 'dizziness or neurological symptoms' },
+    { pattern: /pregnancy|menstrual pain|period pain|vaginal discharge|bleeding|pcos|ovarian|गर्भावस्था|माहवारी|योनि|रक्तस्राव/, category: 'gynecology', complaint: 'women health concern' },
+    { pattern: /urinary|burning urine|frequent urination|blood in urine|uti|pain while urinating|पेशाब|मूत्र/, category: 'urology', complaint: 'urinary complaint' },
+    { pattern: /anxiety|stress|panic|depression|sadness|insomnia|sleep problem|mental health|घबराहट|चिंता|अवसाद|नींद/, category: 'psychiatric', complaint: 'mental health concern' },
+  ]
+
+  const match = conditions.find(({ pattern }) => pattern.test(clean))
+  if (match) return { category: match.category, complaint: match.complaint }
+
+  return { category: matched.category, complaint: normalized.slice(0, 80) }
+}
+
+export function validateMedicalIntent(text = '', language = 'en') {
+  const clean = String(text || '').trim()
+  if (!clean) return { valid: false, reason: 'empty', complaint: null }
+
+  const lower = clean.toLowerCase()
+  if (RANDOM_CHAT_PATTERNS.some((pattern) => pattern.test(lower))) {
+    return { valid: false, reason: 'random', complaint: null, redirect: MEDICAL_REDIRECT_TEXT[language] || MEDICAL_REDIRECT_TEXT.en }
+  }
+
+  const matched = detectPrimaryComplaint(lower)
+  if (!matched) {
+    return { valid: false, reason: 'not-medical', complaint: null, redirect: MEDICAL_REDIRECT_TEXT[language] || MEDICAL_REDIRECT_TEXT.en }
+  }
+
+  return { valid: true, reason: 'medical-intent', complaint: matched.complaint, category: matched.category }
+}
+
 const CLINICAL_DOMAINS = [
   {
-    category: 'ophthalmology',
-    matcher: /eye|vision|sight|blur|glasses|specs|cataract|cornea|pupil|red eye|watery eye|squint|चश्मा|आंख|दृष्टि|धुंधला/,
-    getQuestion: (history, stepIndex) => {
-      const lastAnswer = (history[history.length - 1]?.answerText || '').toLowerCase()
-      const isRoutine = /routine|check|exam|new glass|specs|power|नियमित|चश्मा/.test(lastAnswer)
-
-      if (stepIndex === 0) {
-        return {
-          questionText: 'Is this a routine vision check / new glasses prescription, or are you having eye pain, redness, or blurry vision?',
-          questionTextHi: 'क्या यह नियमित आंखों की जांच / नए चश्मे का नंबर है, या आंखों में दर्द, लाली या धुंधलापन है?',
-          helperText: 'Select or speak the main reason for your eye visit.',
-          options: ['Routine eye exam', 'Need new glasses / power check', 'Blurry or reduced vision', 'Eye pain, redness or irritation'],
-          isLastQuestion: false,
-        }
-      }
-      if (stepIndex === 1) {
-        if (isRoutine || /glass|specs|routine|exam/.test(history[0]?.answerText?.toLowerCase() || '')) {
-          return {
-            questionText: 'Do you currently wear eyeglasses or contact lenses, and do you experience eye strain while working or reading?',
-            questionTextHi: 'क्या आप अभी चश्मा या कॉन्टैक्ट लेंस लगाते हैं, और क्या पढ़ते या स्क्रीन देखते समय आंखों में खिंचाव होता है?',
-            helperText: 'Tell us about your current visual aids and daily screen time.',
-            options: ['Currently wear glasses', 'Notice screen strain / fatigue', 'Blurry distance vision', 'Difficulty reading close-up'],
-            isLastQuestion: false,
-          }
-        }
-        return {
-          questionText: 'Which eye is affected (right, left, or both), and did this start suddenly or gradually over several days?',
-          questionTextHi: 'कौन सी आंख में समस्या है (दाईं, बाईं या दोनों), और क्या यह अचानक शुरू हुआ या धीरे-धीरे?',
-          helperText: 'Specify the affected eye and how quickly symptoms developed.',
-          options: ['Right eye only', 'Left eye only', 'Both eyes', 'Started suddenly', 'Gradual over several days'],
-          isLastQuestion: false,
-        }
-      }
-      return {
-        questionText: 'Do you have any related symptoms like headaches, light sensitivity, discharge, or a medical history of diabetes or high blood pressure?',
-        questionTextHi: 'क्या सिरदर्द, तेज रोशनी से परेशानी, पानी आना, या शुगर/बीपी का पुराना इतिहास है?',
-        helperText: 'Related systemic symptoms help the ophthalmologist prepare your evaluation.',
-        options: ['Frequent headaches', 'Sensitivity to light / watering', 'History of Diabetes / BP', 'No other concerns'],
-        isLastQuestion: true,
-      }
-    },
-  },
-  {
-    category: 'dental',
-    matcher: /tooth|teeth|gum|dentist|cavity|decay|mouth|jaw|दांत|मसूड़े|जबड़ा/,
-    getQuestion: (history, stepIndex) => {
-      if (stepIndex === 0) {
-        return {
-          questionText: 'Where in your mouth is the discomfort, and are you having pain, swelling, or sensitivity to hot or cold foods?',
-          questionTextHi: 'मुंह में समस्या कहां है, और क्या दर्द, सूजन या ठंडा-गर्म लगने की संवेदनशीलता है?',
-          helperText: 'Point out the specific area and sensation.',
-          options: ['Upper teeth / jaw', 'Lower teeth / jaw', 'Sensitivity to hot or cold', 'Bleeding or swollen gums'],
-          isLastQuestion: false,
-        }
-      }
-      if (stepIndex === 1) {
-        return {
-          questionText: 'Is the pain constant and throbbing, or does it mainly trigger when chewing or biting down?',
-          questionTextHi: 'क्या दर्द लगातार धड़कता हुआ है, या केवल चबाते या काटते समय होता है?',
-          helperText: 'Timing of pain indicates cavity depth or nerve involvement.',
-          options: ['Constant throbbing pain', 'Only when chewing / biting', 'Sharp momentary twinges', 'Dull background ache'],
-          isLastQuestion: false,
-        }
-      }
-      return {
-        questionText: 'Do you have any visible swelling on your cheek or gums, fever, or difficulty opening your mouth?',
-        questionTextHi: 'क्या गाल या मसूड़े पर सूजन, बुखार, या मुंह खोलने में कठिनाई है?',
-        helperText: 'Important to rule out dental abscess or infection.',
-        options: ['Visible swelling on cheek / gum', 'Difficulty opening mouth', 'Mild fever', 'No swelling'],
-        isLastQuestion: true,
-      }
-    },
-  },
-  {
-    category: 'dermatology',
-    matcher: /skin|rash|itch|allergy|boil|pimple|acne|spots|dry skin|त्वचा|खुजली|दाने|फोड़ा/,
-    getQuestion: (history, stepIndex) => {
-      if (stepIndex === 0) {
-        return {
-          questionText: 'Where on your body did the rash or skin issue appear, and is it intensely itchy, burning, or painful?',
-          questionTextHi: 'शरीर के किस हिस्से पर दाने या त्वचा की समस्या है, और क्या यह खुजलीदार या दर्दनाक है?',
-          helperText: 'Describe the affected area and sensations.',
-          options: ['Face or neck', 'Arms or hands', 'Torso or back', 'Legs or feet', 'Severe itching', 'Burning / painful'],
-          isLastQuestion: false,
-        }
-      }
-      if (stepIndex === 1) {
-        return {
-          questionText: 'How many days ago did it appear, and have you come into contact with any new soaps, cosmetics, plants, or medications?',
-          questionTextHi: 'यह कितने दिन पहले दिखा, और क्या किसी नए साबुन, क्रीम या दवा के संपर्क में आए हैं?',
-          helperText: 'Helps identify contact allergies or drug reactions.',
-          options: ['1 to 3 days ago', 'More than a week ago', 'New soap, cream or product', 'No known new exposure'],
-          isLastQuestion: false,
-        }
-      }
-      return {
-        questionText: 'Is the affected skin dry and scaly, or is it blistering, oozing fluid, or spreading to other parts?',
-        questionTextHi: 'क्या त्वचा सूखी और पपड़ीदार है, या छाले पड़ रहे हैं और फैल रहा है?',
-        helperText: 'Guides the dermatologist in diagnosing dermatitis or infection.',
-        options: ['Dry, scaly patches', 'Blisters or oozing fluid', 'Spreading to other areas', 'Stable / no change'],
-        isLastQuestion: true,
-      }
-    },
-  },
-  {
-    category: 'orthopedic',
-    matcher: /knee|back|joint|shoulder|neck|hip|ankle|sprain|fracture|bone|घुटने|कमर|जोड़|हड्डी|मोच/,
-    getQuestion: (history, stepIndex) => {
-      if (stepIndex === 0) {
-        return {
-          questionText: 'Did this pain begin after an injury, fall, or sudden movement, or did it develop gradually over time?',
-          questionTextHi: 'क्या यह दर्द किसी चोट, गिरने या झटके के बाद शुरू हुआ, या धीरे-धीरे बढ़ा?',
-          helperText: 'Differentiates traumatic injury from chronic joint degeneration.',
-          options: ['After a fall or physical injury', 'Gradual ache over weeks', 'Started after heavy lifting', 'Morning stiffness in joint'],
-          isLastQuestion: false,
-        }
-      }
-      if (stepIndex === 1) {
-        return {
-          questionText: 'Does the pain increase when walking or bearing weight, and have you noticed any swelling or warmth in the joint?',
-          questionTextHi: 'क्या चलने या वजन देने पर दर्द बढ़ता है, और क्या जोड़ में सूजन या गर्माहट है?',
-          helperText: 'Indicates active inflammation or ligament strain.',
-          options: ['Much worse with walking', 'Worse with resting / sitting', 'Visible joint swelling', 'No swelling'],
-          isLastQuestion: false,
-        }
-      }
-      return {
-        questionText: 'Are you experiencing any numbness, tingling, or weakness radiating down into your arms or legs?',
-        questionTextHi: 'क्या हाथ या पैर में कोई सुन्नपन, झनझनाहट या कमजोरी महसूस हो रही है?',
-        helperText: 'Rules out nerve compression or sciatica.',
-        options: ['Tingling or numbness radiating down', 'Weakness in limb', 'Pain stays strictly localized', 'None'],
-        isLastQuestion: true,
-      }
-    },
-  },
-  {
-    category: 'ent',
-    matcher: /ear|hearing|throat|tonsil|swallow|voice|sinus|earache|कान|गला|टॉन्सिल|निगलना/,
-    getQuestion: (history, stepIndex) => {
-      if (stepIndex === 0) {
-        return {
-          questionText: 'Are your symptoms focused on ear pain / hearing, sore throat / swallowing difficulty, or nasal blockage?',
-          questionTextHi: 'क्या समस्या कान में दर्द/सुनने में है, गले में दर्द/निगलने में है, या नाक बंद में?',
-          helperText: 'Categorizes ENT focus area.',
-          options: ['Ear pain or reduced hearing', 'Sore throat or pain swallowing', 'Nasal blockage or sinus pressure', 'Hoarse voice'],
-          isLastQuestion: false,
-        }
-      }
-      if (stepIndex === 1) {
-        return {
-          questionText: 'How many days have you had this, and is there any ear discharge, high fever, or dizziness?',
-          questionTextHi: 'यह कितने दिनों से है, और क्या कान से मवाद, तेज बुखार या चक्कर आ रहे हैं?',
-          helperText: 'Helps assess middle ear infection or acute tonsillitis.',
-          options: ['1 to 3 days', 'Over a week', 'Fluid or discharge from ear', 'Dizziness or vertigo', 'No fever or discharge'],
-          isLastQuestion: false,
-        }
-      }
-      return {
-        questionText: 'Are you able to swallow liquids and take food comfortably without severe pain or breathing difficulty?',
-        questionTextHi: 'क्या आप बिना तेज दर्द या सांस की परेशानी के पानी और खाना निगल पा रहे हैं?',
-        helperText: 'Assesses airway safety and throat obstruction.',
-        options: ['Can swallow normally', 'Painful swallowing (solids)', 'Severe difficulty swallowing fluids', 'No breathing issues'],
-        isLastQuestion: true,
-      }
-    },
-  },
-  {
     category: 'cardiac',
-    matcher: /chest|heart|tightness|angina|palpitation|छाती|हृदय|घबराहट/,
+    matcher: /chest|heart|tightness|palpitation|angina|pressure|breathlessness|shortness of breath|sweat|jaw|arm pain|छाती|हृदय|धड़कन|सांस फूलना/,
     getQuestion: (history, stepIndex) => {
-      if (stepIndex === 0) {
-        return {
-          questionText: 'Does the chest sensation feel like heavy pressure, squeezing, or sharp pain, and does it spread to your left arm, jaw, or back?',
-          questionTextHi: 'क्या छाती में भारी दबाव या निचोड़ने जैसा दर्द है, और क्या यह बाईं बांह, जबड़े या पीठ तक फैलता है?',
-          helperText: 'Important cardiac symptom characterization.',
-          options: ['Heavy pressure / squeezing', 'Sharp stabbing pain', 'Spreading to arm or jaw', 'Centered in chest only'],
-          isLastQuestion: false,
-        }
+      if (stepIndex === 0) return {
+        questionText: 'Does the chest discomfort feel like pressure, squeezing, or sharp pain, and does it spread to the arm, jaw, or back?',
+        questionTextHi: 'क्या छाती में दबाव, निचोड़ने जैसा दर्द, या तेज दर्द है, और यह हाथ, जबड़े या पीठ तक फैलता है?',
+        helperText: 'Chest pain quality and radiation are key cardiac clues.',
+        options: ['Pressure / squeezing', 'Sharp stabbing pain', 'Spreads to arm or jaw', 'Localized chest pain'],
+        isLastQuestion: false,
       }
-      if (stepIndex === 1) {
-        return {
-          questionText: 'Does the discomfort worsen with walking or physical exertion, and does it ease when you sit and rest?',
-          questionTextHi: 'क्या चलने या मेहनत करने पर दर्द बढ़ता है, और आराम करने पर कम होता है?',
-          helperText: 'Distinguishes exertional angina from musculoskeletal pain.',
-          options: ['Worse with physical exertion', 'Relieved by rest', 'Constant continuous pain', 'Worse with deep breaths'],
-          isLastQuestion: false,
-        }
+      if (stepIndex === 1) return {
+        questionText: 'Is it worse with walking or exertion, or does it happen at rest? Are you short of breath or dizzy?',
+        questionTextHi: 'क्या यह चलने या मेहनत करने पर ज्यादा है, या आराम में भी है? सांस फूल रही है या चक्कर आ रहे हैं?',
+        helperText: 'Exertional symptoms and dizziness matter for urgent assessment.',
+        options: ['Worse with activity', 'At rest / persistent', 'Shortness of breath', 'Dizzy / lightheaded'],
+        isLastQuestion: false,
       }
       return {
-        questionText: 'Are you having cold sweats, shortness of breath, or feeling dizzy or lightheaded right now?',
-        questionTextHi: 'क्या आपको ठंडा पसीना, सांस फूलना या चक्कर आ रहे हैं?',
-        helperText: 'Autonomic symptoms in chest complaints require prompt triage.',
-        options: ['Cold sweats & breathlessness', 'Dizzy / lightheaded', 'Mild shortness of breath', 'None of these'],
-        isLastQuestion: true,
-      }
-    },
-  },
-  {
-    category: 'abdominal',
-    matcher: /stomach|abdomen|belly|vomit|nausea|loose motion|diarrhea|constipation|acidity|gas|पेट|उल्टी|दस्त|कब्ज|गैस/,
-    getQuestion: (history, stepIndex) => {
-      if (stepIndex === 0) {
-        return {
-          questionText: 'Where in your stomach is the pain most intense (upper stomach, lower right side, navel, or all over)?',
-          questionTextHi: 'पेट में दर्द सबसे ज्यादा कहां है (ऊपरी पेट, नीचे दाईं तरफ, नाभि के पास, या पूरे पेट में)?',
-          helperText: 'Pain localization guides diagnosis for gastritis, appendicitis, or gallbladder.',
-          options: ['Upper stomach (acidity / burning)', 'Lower right abdomen', 'Around the navel', 'All over abdomen'],
-          isLastQuestion: false,
-        }
-      }
-      if (stepIndex === 1) {
-        return {
-          questionText: 'Does eating food make the pain better or worse, and have you had any vomiting or loose motions?',
-          questionTextHi: 'क्या खाना खाने से दर्द बढ़ता या घटता है, और क्या उल्टी या दस्त हुए हैं?',
-          helperText: 'Assesses gastric vs intestinal involvement.',
-          options: ['Worse after eating meals', 'Better after eating food', 'Multiple loose motions', 'Nausea and vomiting', 'No change with food'],
-          isLastQuestion: false,
-        }
-      }
-      return {
-        questionText: 'Have you noticed any high fever, yellowing of eyes, blood in stool, or inability to pass gas?',
-        questionTextHi: 'क्या तेज बुखार, आंखों में पीलापन, मल में खून या गैस न निकलने की समस्या है?',
-        helperText: 'Rules out acute surgical abdomen or gastrointestinal bleeding.',
-        options: ['High fever with chills', 'Severe vomiting / no fluids retained', 'Blood in stool or vomit', 'None of these'],
+        questionText: 'Any sweating, nausea, or history of high blood pressure or diabetes?',
+        questionTextHi: 'क्या ठंडा पसीना, मतली, या शुगर/बीपी का इतिहास है?',
+        helperText: 'Associated symptoms guide urgent triage.',
+        options: ['Sweating', 'Nausea', 'High blood pressure', 'Diabetes'],
         isLastQuestion: true,
       }
     },
   },
   {
     category: 'respiratory',
-    matcher: /cough|cold|breath|wheez|asthma|congestion|phlegm|sneeze|खांसी|जुकाम|सांस|कफ|दमा/,
+    matcher: /cough|cold|breath|wheeze|asthma|congestion|phlegm|sneeze|nose|throat|fever|खांसी|जुकाम|सांस|कफ|दमा|नाक/,
     getQuestion: (history, stepIndex) => {
-      if (stepIndex === 0) {
-        return {
-          questionText: 'How many days have you had this cough/cold, and is your cough dry or bringing up phlegm/mucus?',
-          questionTextHi: 'यह खांसी/जुकाम कितने दिनों से है, और क्या खांसी सूखी है या बलगम आ रहा है?',
-          helperText: 'Helps differentiate viral URI from lower respiratory issues.',
-          options: ['1 to 3 days', '4 to 7 days', 'More than 2 weeks', 'Dry hacking cough', 'Cough with yellow/green phlegm'],
-          isLastQuestion: false,
-        }
+      if (stepIndex === 0) return {
+        questionText: 'How long have the respiratory symptoms been going on, and is the cough dry or productive with mucus?',
+        questionTextHi: 'सांस/खांसी की परेशानी कितने दिनों से है, और खांसी सूखी है या बलगम के साथ है?',
+        helperText: 'Duration and sputum help determine urgency and cause.',
+        options: ['1 to 3 days', '4 to 7 days', 'More than 2 weeks', 'Dry cough', 'Mucus / phlegm'],
+        isLastQuestion: false,
       }
-      if (stepIndex === 1) {
-        return {
-          questionText: 'Are you having fever with chills, or difficulty catching your breath when walking or resting?',
-          questionTextHi: 'क्या ठंड लगकर बुखार आ रहा है, या चलने-फिरने पर सांस फूल रही है?',
-          helperText: 'Evaluates severity and respiratory effort.',
-          options: ['Fever with chills', 'Shortness of breath on walking', 'Wheezing / whistling sound', 'Runny nose and mild throat ache'],
-          isLastQuestion: false,
-        }
+      if (stepIndex === 1) return {
+        questionText: 'Do you also have fever, wheezing, chest tightness, or shortness of breath?',
+        questionTextHi: 'क्या साथ में बुखार, सीने में tightness, खांसी के साथ सांस फूलना या सीटी जैसी आवाज है?',
+        helperText: 'Systemic and airway symptoms matter for respiratory triage.',
+        options: ['Fever', 'Wheezing', 'Shortness of breath', 'No other symptoms'],
+        isLastQuestion: false,
       }
       return {
-        questionText: 'Does the cough or breathlessness get noticeably worse at night or when lying flat in bed?',
-        questionTextHi: 'क्या रात में लेटने पर खांसी या सांस की तकलीफ ज्यादा बढ़ जाती है?',
-        helperText: 'Useful for asthma, post-nasal drip, or cardiac cough assessment.',
-        options: ['Much worse lying flat at night', 'Constant throughout day & night', 'Triggered by cold air or dust', 'No change with position'],
+        questionText: 'Is it worse at night, with exercise, or after exposure to dust, smoke, or cold air?',
+        questionTextHi: 'क्या यह रात में, व्यायाम के बाद, या धूल/धुएं/ठंडी हवा से ज्यादा खराब होता है?',
+        helperText: 'Trigger pattern helps separate asthma and infection.',
+        options: ['Nighttime', 'Exercise', 'Dust/smoke', 'No trigger'],
         isLastQuestion: true,
       }
     },
   },
   {
     category: 'neurological',
-    matcher: /headache|migraine|dizzy|vertigo|faint|numb|tingling|seizure|सिरदर्द|चक्कर|सुन्न|बेहोशी/,
+    matcher: /headache|migraine|dizzy|vertigo|faint|numb|tingling|weakness|speech|balance|chest pain|सिरदर्द|चक्कर|बेहोशी|सुन्न|कमजोरी|संतुलन|बोलने/,
     getQuestion: (history, stepIndex) => {
-      if (stepIndex === 0) {
-        return {
-          questionText: 'Is the headache throbbing on one side, a tight squeezing band across the forehead, or sudden and intensely severe?',
-          questionTextHi: 'क्या सिरदर्द एक तरफ धड़कता हुआ है, माथे पर भारी जकड़न है, या अचानक बहुत तेज हुआ?',
-          helperText: 'Classifies migraine vs tension vs acute headache.',
-          options: ['One-sided throbbing pain', 'Tight band across forehead', 'Behind the eyes / temples', 'Sudden, severe thunderclap headache'],
-          isLastQuestion: false,
-        }
+      if (stepIndex === 0) return {
+        questionText: 'Is the headache or dizziness one-sided, throbbing, or sudden and severe?',
+        questionTextHi: 'क्या सिरदर्द या चक्कर एक तरफ है, धड़कता है, या अचानक बहुत तेज है?',
+        helperText: 'Pattern helps separate migraine, tension, or dangerous acute headache.',
+        options: ['One-sided throbbing', 'Pressure around forehead', 'Sudden severe', 'Lightheadedness only'],
+        isLastQuestion: false,
       }
-      if (stepIndex === 1) {
-        return {
-          questionText: 'Are you feeling nauseous, or sensitive to bright light and loud sounds during the headache?',
-          questionTextHi: 'क्या मतली आ रही है, या तेज रोशनी और आवाज से सिरदर्द बढ़ता है?',
-          helperText: 'Hallmarks of migraine syndrome.',
-          options: ['Sensitive to light and sound', 'Nausea or upset stomach', 'Visual blurriness or aura', 'No sensitivity or nausea'],
-          isLastQuestion: false,
-        }
+      if (stepIndex === 1) return {
+        questionText: 'Any nausea, sensitivity to light/sound, weakness, face drooping, or speech change?',
+        questionTextHi: 'क्या मतली, रोशनी/आवाज से परेशानी, कमजोरी, चेहरे की विकृति, या बोलने में समस्या है?',
+        helperText: 'Neurological red flags need urgent attention.',
+        options: ['Nausea', 'Light sensitivity', 'Weakness', 'Speech change'],
+        isLastQuestion: false,
       }
       return {
-        questionText: 'Have you noticed any one-sided weakness in your face or arms, slurred speech, or loss of balance?',
-        questionTextHi: 'क्या चेहरे या बांह में कमजोरी, बोलने में लड़खड़ाहट, या संतुलन बिगड़ने की समस्या हुई?',
-        helperText: 'Critical screening for neurological safety.',
-        options: ['Facial or arm weakness', 'Difficulty speaking clearly', 'Loss of balance / dizziness', 'None of these symptoms'],
+        questionText: 'Have you had any loss of balance, fainting, or numbness in the face or limbs?',
+        questionTextHi: 'क्या संतुलन खराब, बेहोशी, या चेहरे/हाथ-पैर में सुन्नपन हुआ?',
+        helperText: 'Neurological safety screening is essential.',
+        options: ['Lost balance', 'Fainted', 'Numbness', 'None'],
+        isLastQuestion: true,
+      }
+    },
+  },
+  {
+    category: 'abdominal',
+    matcher: /stomach|abdomen|belly|nausea|vomit|diarrhea|constipation|gas|acid|indigestion|bloating|pain after eating|पेट|उल्टी|दस्त|कब्ज|गैस|अम्ल/, 
+    getQuestion: (history, stepIndex) => {
+      if (stepIndex === 0) return {
+        questionText: 'Where exactly is the abdominal pain, and is it constant or cramping?',
+        questionTextHi: 'पेट दर्द बिल्कुल कहां है, और यह लगातार है या ऐंठा हुआ है?',
+        helperText: 'Pain location and character guide GI assessment.',
+        options: ['Upper abdomen', 'Lower right side', 'Around navel', 'All over'],
+        isLastQuestion: false,
+      }
+      if (stepIndex === 1) return {
+        questionText: 'Have you had vomiting, loose stools, fever, or pain after eating?',
+        questionTextHi: 'क्या उल्टी, दस्त, बुखार, या खाने के बाद दर्द हुआ?',
+        helperText: 'GI infection and gastric irritation can show these patterns.',
+        options: ['Vomiting', 'Loose stools', 'Fever', 'Worse after meals'],
+        isLastQuestion: false,
+      }
+      return {
+        questionText: 'Any blood in vomit or stool, black stools, or trouble passing gas?',
+        questionTextHi: 'क्या उल्टी या मल में खून है, काला मल है, या गैस नहीं निकल रही?',
+        helperText: 'Red flags of gastrointestinal bleeding or obstruction.',
+        options: ['Blood in stool', 'Blood in vomit', 'No gas', 'None'],
+        isLastQuestion: true,
+      }
+    },
+  },
+  {
+    category: 'musculoskeletal',
+    matcher: /knee|joint|back|shoulder|neck|leg|arm|ankle|hip|muscle|bone|sprain|fracture|pain with movement|घुटना|जोड़|कमर|हाथ|पैर|मांसपेशी|हड्डी/, 
+    getQuestion: (history, stepIndex) => {
+      if (stepIndex === 0) return {
+        questionText: 'Did the pain begin after a fall, injury, or sudden movement, or did it come on gradually?',
+        questionTextHi: 'क्या दर्द गिरने, चोट, या sudden movement के बाद शुरू हुआ, या धीरे-धीरे बढ़ा?',
+        helperText: 'Recent injury vs chronic wear-and-tear matters.',
+        options: ['After injury', 'Gradual', 'Heavy lifting', 'Morning stiffness'],
+        isLastQuestion: false,
+      }
+      if (stepIndex === 1) return {
+        questionText: 'Is the pain worse with moving the limb, walking, or bearing weight?',
+        questionTextHi: 'क्या दर्द हाथ/पैर चलाने, चलने, या वजन उठाने पर बढ़ता है?',
+        helperText: 'Movement pattern helps localize musculoskeletal pain.',
+        options: ['Walking', 'Lifting', 'Resting', 'No change'],
+        isLastQuestion: false,
+      }
+      return {
+        questionText: 'Any swelling, redness, warmth, locking, or numbness around the joint?',
+        questionTextHi: 'क्या जोड़ में सूजन, लालपन, गर्माहट, locking, या सुन्नपन है?',
+        helperText: 'Swelling and neuro symptoms suggest inflammation or strain.',
+        options: ['Swelling', 'Redness', 'Numbness', 'None'],
+        isLastQuestion: true,
+      }
+    },
+  },
+  {
+    category: 'dermatology',
+    matcher: /rash|itch|itching|hives|skin|boil|pimple|blister|urticaria|redness|allergy|त्वचा|खुजली|दाने|फोड़ा|रैश/, 
+    getQuestion: (history, stepIndex) => {
+      if (stepIndex === 0) return {
+        questionText: 'Where is the rash or skin issue, and is it itchy, painful, or burning?',
+        questionTextHi: 'रैश या त्वचा की समस्या कहाँ है, और क्या यह खुजली, दर्द, या जलन जैसा है?',
+        helperText: 'Location and sensation guide skin diagnosis.',
+        options: ['Face', 'Arms', 'Torso', 'Legs', 'Itchy', 'Painful'],
+        isLastQuestion: false,
+      }
+      if (stepIndex === 1) return {
+        questionText: 'Did it start after a new soap, food, medicine, or insect bite?',
+        questionTextHi: 'क्या यह नए साबुन, भोजन, दवा, या कीट काटने के बाद शुरू हुआ?',
+        helperText: 'Exposure history differentiates allergy from infection.',
+        options: ['New medicine', 'Food', 'Soap / cream', 'Insect bite'],
+        isLastQuestion: false,
+      }
+      return {
+        questionText: 'Is the skin dry and flaky, or is there blistering, oozing, or spreading?',
+        questionTextHi: 'क्या त्वचा सूखी और फटी हुई है, या छाले, पानी, या फैलाव है?',
+        helperText: 'Blistering and spreading matter for urgent skin care review.',
+        options: ['Dry / flaky', 'Blisters', 'Oozing', 'Spreading'],
+        isLastQuestion: true,
+      }
+    },
+  },
+  {
+    category: 'ophthalmology',
+    matcher: /eye|vision|blur|glasses|red eye|watering|contact lens|sight|आंख|दृष्टि|चश्मा|धुंधला/, 
+    getQuestion: (history, stepIndex) => {
+      if (stepIndex === 0) return {
+        questionText: 'Is it a routine vision check or are you having pain, redness, blurry vision, or floaters?',
+        questionTextHi: 'क्या यह सामान्य दृष्टि जाँच है या आंख में दर्द, लाली, धुंधलापन या floaters हैं?',
+        helperText: 'It distinguishes refractive needs from acute eye symptoms.',
+        options: ['Routine exam', 'Blurred vision', 'Eye pain', 'Redness'],
+        isLastQuestion: false,
+      }
+      if (stepIndex === 1) return {
+        questionText: 'Which eye is affected, and did it start suddenly or gradually over days?',
+        questionTextHi: 'कौन सी आंख प्रभावित है, और यह अचानक शुरू हुआ या दिनों में धीरे-धीरे?',
+        helperText: 'Laterality and onset matter for eye emergencies.',
+        options: ['Right eye', 'Left eye', 'Both eyes', 'Sudden'],
+        isLastQuestion: false,
+      }
+      return {
+        questionText: 'Any headache, light sensitivity, discharge, or history of diabetes or high blood pressure?',
+        questionTextHi: 'क्या सिरदर्द, रोशनी से परेशानी, पानी, या शुगर/बीपी का इतिहास है?',
+        helperText: 'Systemic symptoms can influence eye evaluation.',
+        options: ['Headache', 'Light sensitivity', 'Diabetes', 'No other symptoms'],
+        isLastQuestion: true,
+      }
+    },
+  },
+  {
+    category: 'dental',
+    matcher: /tooth|teeth|gum|dental|jaw|mouth|wisdom|दांत|मसूड़े|जबड़ा|मुंह/, 
+    getQuestion: (history, stepIndex) => {
+      if (stepIndex === 0) return {
+        questionText: 'Where is the dental pain, and is it worse with hot-cold food or chewing?',
+        questionTextHi: 'दांत का दर्द कहाँ है, और गर्म-कठोर भोजन या चबाने पर ज्यादा है?',
+        helperText: 'Pain pattern helps identify tooth or gum origin.',
+        options: ['Upper tooth', 'Lower tooth', 'Gum pain', 'Chewing pain'],
+        isLastQuestion: false,
+      }
+      if (stepIndex === 1) return {
+        questionText: 'Any swelling, gum bleeding, fever, or visible pus?',
+        questionTextHi: 'क्या सूजन, मसूड़ों से खून, बुखार, या pus दिखाई दे रहा है?',
+        helperText: 'Swelling and fever suggest infection or abscess.',
+        options: ['Swelling', 'Bleeding', 'Fever', 'No symptoms'],
+        isLastQuestion: false,
+      }
+      return {
+        questionText: 'Is it difficult to open your mouth or bite properly?',
+        questionTextHi: 'क्या मुंह खोलने या काटने में परेशानी है?',
+        helperText: 'Jaw movement issues amplify dental urgency.',
+        options: ['Hard to open', 'Hard to bite', 'No issue'],
+        isLastQuestion: true,
+      }
+    },
+  },
+  {
+    category: 'general',
+    matcher: /fatigue|weak|tired|feeling unwell|body ache|weight loss|weight gain|sleepy|general discomfort|थकान|कमजोरी|अस्वस्थ|शरीर दर्द/, 
+    getQuestion: (history, stepIndex) => {
+      if (stepIndex === 0) return {
+        questionText: 'When did this usually begin, and how severe is it on a 0 to 10 scale?',
+        questionTextHi: 'यह सामान्यतः कब से शुरू हुआ, और 0 से 10 में कितना गंभीर है?',
+        helperText: 'Duration and severity help decide urgency.',
+        options: ['Today', 'Few days', 'Weeks', 'Mild', 'Moderate', 'Severe'],
+        isLastQuestion: false,
+      }
+      if (stepIndex === 1) return {
+        questionText: 'Any associated fever, weight change, poor appetite, or dizziness?',
+        questionTextHi: 'क्या साथ में बुखार, वजन परिवर्तन, भूख कम, या चक्कर है?',
+        helperText: 'These clues guide full-body review.',
+        options: ['Fever', 'Weight loss', 'Poor appetite', 'Dizziness'],
+        isLastQuestion: false,
+      }
+      return {
+        questionText: 'Do you have any chronic conditions or medicines like diabetes, blood pressure, thyroid, or antidepressants?',
+        questionTextHi: 'क्या शुगर, बीपी, थायरॉइड, या एंटी-डिप्रेसेंट जैसी पुरानी बीमारी या दवाएं हैं?',
+        helperText: 'Medical history changes how the physician evaluates the problem.',
+        options: ['Diabetes', 'Blood pressure', 'Thyroid', 'No conditions'],
         isLastQuestion: true,
       }
     },
@@ -305,29 +341,39 @@ function getGeneralAdaptiveQuestion(complaint, history, stepIndex) {
 
   if (stepIndex === 0) {
     return {
-      questionText: `Could you describe what you are experiencing with "${complaint}" — how long has it been happening, and does it feel mild or severe?`,
-      questionTextHi: `कृपया बताएं कि आपको "${complaint}" में क्या परेशानी हो रही है — यह कितने समय से है और कितना गंभीर है?`,
-      helperText: 'Share onset duration and severity.',
-      options: ['Started today or yesterday', 'Ongoing for several days', 'Chronic (weeks or months)', 'Mild discomfort', 'Moderate to severe'],
+      questionText: `Could you describe the problem with "${complaint}" — when it started, how long it has lasted, and whether it feels mild, moderate, or severe?`,
+      questionTextHi: `कृपया बताएं कि "${complaint}" में क्या परेशानी है — यह कब शुरू हुआ, कितने समय से है और कितनी तीव्रता है?`,
+      helperText: 'Share onset, duration, and severity.',
+      options: ['Started today', 'Few days', 'Weeks', 'Mild', 'Moderate', 'Severe'],
       isLastQuestion: false,
     }
   }
 
   if (stepIndex === 1) {
     return {
-      questionText: 'What makes the discomfort better or worse — for example, physical movement, eating, resting, or taking medication?',
-      questionTextHi: 'किस चीज से आराम या तकलीफ बढ़ती है — जैसे चलना, खाना, आराम करना या दवा लेना?',
-      helperText: 'Exacerbating and relieving factors help pinpoint the cause.',
-      options: ['Worse with physical movement', 'Relieved by rest', 'Worse in morning / night', 'No specific change'],
+      questionText: 'What makes it worse or better — movement, eating, rest, sleep, or medicines?',
+      questionTextHi: 'क्या यह चलने, खाने, आराम, नींद, या दवा से ज्यादा खराब/अच्छा होता है?',
+      helperText: 'Pattern helps narrow down the likely cause.',
+      options: ['Movement makes worse', 'Rest helps', 'Food triggers it', 'Medicine helps'],
+      isLastQuestion: false,
+    }
+  }
+
+  if (stepIndex === 2) {
+    return {
+      questionText: 'Are you having any associated fever, dizziness, nausea, shortness of breath, or weight change?',
+      questionTextHi: 'क्या साथ में बुखार, चक्कर, मतली, सांस फूलना, या वजन में बदलाव है?',
+      helperText: 'Associated symptoms determine urgency and next steps.',
+      options: ['Fever', 'Dizziness', 'Nausea', 'Shortness of breath'],
       isLastQuestion: false,
     }
   }
 
   return {
-    questionText: 'Do you have any related concerns (like fever, body aches, poor sleep) or chronic conditions like diabetes, thyroid, or hypertension?',
-    questionTextHi: 'क्या बुखार, बदन दर्द, नींद में कमी, या शुगर, बीपी, थायरॉइड जैसी कोई पुरानी बीमारी है?',
-    helperText: 'General health background for the physician review.',
-    options: ['History of Diabetes or BP', 'Body aches or fatigue', 'Trouble sleeping or eating', 'No other medical conditions'],
+    questionText: 'Do you have any chronic conditions or medications such as diabetes, high blood pressure, thyroid issues, or recent antibiotics?',
+    questionTextHi: 'क्या शुगर, बीपी, थायरॉइड, या हाल की दवाओं/एंटीबायोटिक का इतिहास है?',
+    helperText: 'Background history supports safe medical triage.',
+    options: ['Diabetes', 'Blood pressure', 'Thyroid', 'No chronic issues'],
     isLastQuestion: true,
   }
 }
@@ -337,7 +383,7 @@ function getGeneralAdaptiveQuestion(complaint, history, stepIndex) {
  */
 export function generateAdaptiveFallback({ complaint, history, stepIndex, language = 'en' }) {
   const cleanComplaint = String(complaint || '').trim().toLowerCase()
-  const domain = CLINICAL_DOMAINS.find((d) => d.matcher.test(cleanComplaint))
+  const domain = CLINICAL_DOMAINS.find((d) => d.matcher.test(cleanComplaint)) || CLINICAL_DOMAINS.find((d) => d.category === 'general')
 
   let questionObj
   if (domain) {
@@ -355,7 +401,7 @@ export function generateAdaptiveFallback({ complaint, history, stepIndex, langua
     options: questionObj.options || [],
     source: 'smart-engine',
     category: domain?.category || 'general',
-    isLastQuestion: Boolean(questionObj.isLastQuestion || stepIndex >= 2),
+    isLastQuestion: Boolean(questionObj.isLastQuestion || stepIndex >= 3),
   }
 }
 

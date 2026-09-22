@@ -22,48 +22,66 @@ export default function LanguageSelect({ onNext }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-14">
-      <div className="kiosk-panel rounded-[2rem] overflow-hidden">
-        <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="bg-medi-700 text-white p-7 sm:p-10 flex flex-col justify-between min-h-[270px]">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="kiosk-panel overflow-hidden rounded-[2rem]">
+        <div className="grid lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="flex min-h-[260px] flex-col justify-between bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 p-7 text-white sm:p-10">
             <div>
-              <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center mb-7">
+              <div className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-white/10 shadow-[0_12px_24px_rgba(4,27,18,0.2)]">
                 <Languages size={29} />
               </div>
-              <p className="text-xs uppercase tracking-[0.2em] text-medi-100 font-bold">Welcome to MediKiosk</p>
-              <h1 className="text-3xl sm:text-4xl font-bold leading-tight mt-3">Let’s make your visit easier.</h1>
-              <p className="text-medi-100 mt-4 max-w-sm">Choose the language you are most comfortable speaking. Your questions and voice support will follow your choice.</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-100">Welcome to MediKiosk</p>
+              <h1 className="mt-3 text-3xl font-black leading-tight sm:text-4xl">Let’s make your visit easier.</h1>
+              <p className="mt-4 max-w-sm text-sm text-emerald-50 sm:text-base">
+                Choose the language you are most comfortable speaking. Your questions and voice support will follow your choice.
+              </p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-medi-100 mt-8"><ShieldCheck size={18} /> Private, patient-first intake</div>
+            <div className="mt-8 flex items-center gap-2 text-sm text-emerald-50">
+              <ShieldCheck size={18} />
+              <span>Private, patient-first intake</span>
+            </div>
           </div>
-          <div className="p-6 sm:p-10 bg-white">
+
+          <div className="bg-white/75 p-6 sm:p-10">
             <div className="mb-6">
-              <p className="text-xs uppercase tracking-[0.16em] text-medi-700 font-bold">Step 1 of your visit</p>
-              <h2 className="text-2xl font-bold text-slate-800 mt-2">Choose your language</h2>
-              <p className="text-slate-500 mt-1">अपनी भाषा चुनें</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Step 1 of your visit</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-900">Choose your language</h2>
+              <p className="mt-1 text-slate-500">अपनी भाषा चुनें</p>
             </div>
-            <label className="block mb-5">
-              <span className="block text-sm font-bold text-slate-700 mb-2">Select hospital</span>
-              <select value={data.selectedHospital} onChange={(event) => setSelectedHospital(event.target.value)} className="w-full h-14 rounded-2xl border-2 border-slate-200 bg-white px-4 text-slate-700 font-semibold focus:outline-none focus:border-medi-500">
+
+            <label className="mb-5 block">
+              <span className="mb-2 block text-sm font-bold text-slate-700">Select hospital</span>
+              <select
+                value={data.selectedHospital}
+                onChange={(event) => setSelectedHospital(event.target.value)}
+                className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-slate-700 shadow-sm outline-none transition focus:border-emerald-500 focus:bg-white"
+              >
                 {hospitals.map((hospital) => <option key={hospital.id} value={hospital.id}>{hospital.name}</option>)}
               </select>
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {LANGUAGES.map((lang) => (
-          <button
-            key={lang.code}
-            onClick={() => choose(lang.code)}
-            className={`h-16 rounded-2xl border-2 text-lg font-semibold flex items-center justify-between px-4 transition-all
-              ${data.patient.language === lang.code
-                ? 'border-medi-600 bg-medi-50 text-medi-700 shadow-sm'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-medi-300 hover:-translate-y-0.5'}`}
-          >
-            <span>{lang.label}</span>
-            {data.patient.language === lang.code && <Check size={19} />}
-          </button>
-        ))}
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => choose(lang.code)}
+                  className={`flex h-16 items-center justify-between rounded-2xl border-2 px-4 text-lg font-semibold transition-all ${
+                    data.patient.language === lang.code
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-[0_10px_24px_rgba(31,167,106,0.12)]'
+                      : 'border-slate-200 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-emerald-300'
+                  }`}
+                >
+                  <span>{lang.label}</span>
+                  {data.patient.language === lang.code && <Check size={19} />}
+                </button>
+              ))}
             </div>
-            <div className="mt-7 flex items-center gap-2 text-sm text-slate-400"><span className="w-2 h-2 rounded-full bg-medi-500" /> Select one to continue automatically <ArrowRight size={16} /></div>
+
+            <div className="mt-7 flex items-center gap-2 text-sm text-slate-500">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span>Select one to continue automatically</span>
+              <ArrowRight size={16} className="text-emerald-600" />
+            </div>
           </div>
         </div>
       </div>

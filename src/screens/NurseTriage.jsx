@@ -3,7 +3,7 @@ import { AlertTriangle, Clock3, HeartPulse, Timer, UserRound } from 'lucide-reac
 import { useKiosk } from '../context/KioskContext.jsx'
 
 export default function NurseTriage() {
-  const { data, setRole } = useKiosk()
+  const { data, patientQueue, setRole } = useKiosk()
   const [now, setNow] = useState(Date.now())
   const { patient, intake } = data
 
@@ -12,15 +12,7 @@ export default function NurseTriage() {
     return () => clearInterval(timer)
   }, [])
 
-  const currentPatient = {
-    id: 'current-patient',
-    name: patient.name,
-    symptomSummary: intake.chiefComplaint || 'Intake in progress',
-    redFlag: intake.redFlagTriggered,
-    triggeredAt: intake.redFlagTriggeredAt,
-    status: intake.redFlagTriggered ? 'Needs immediate review' : 'Waiting for triage',
-  }
-  const queue = [currentPatient, ...MOCK_QUEUE].sort((a, b) => Number(b.redFlag) - Number(a.redFlag) || new Date(a.triggeredAt || a.queuedAt) - new Date(b.triggeredAt || b.queuedAt))
+  const queue = patientQueue.map((record) => ({ id: record.id, name: record.patient.name, symptomSummary: record.intake.chiefComplaint || 'Intake in progress', redFlag: record.intake.redFlags?.length > 0, triggeredAt: record.patient.arrivalAt, status: record.patient.consultationStatus || 'Waiting for triage' })).sort((a, b) => Number(b.redFlag) - Number(a.redFlag) || new Date(a.triggeredAt) - new Date(b.triggeredAt))
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-12">
