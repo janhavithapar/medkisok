@@ -85,10 +85,22 @@ export default function Screen5DocumentScan({ onNext, onBack }) {
         mimeType: file.type || 'image/jpeg',
         apiKey: geminiApiKey,
       })
-      setReview(extracted)
+      setReview({
+        ...extracted,
+        extractedText: extracted.extractedText || extractedText,
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        fileDataUrl: base64Data ? `data:${file.type || 'application/octet-stream'};base64,${base64Data}` : previewUrl,
+      })
     } catch (err) {
       console.error('Error during document processing:', err)
-      setReview(generateLocalOcrResult({ fileName: file.name, previewUrl, extractedText }))
+      setReview({
+        ...generateLocalOcrResult({ fileName: file.name, previewUrl, extractedText }),
+        extractedText,
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        fileDataUrl: base64Data ? `data:${file.type || 'application/octet-stream'};base64,${base64Data}` : previewUrl,
+      })
     } finally {
       setProcessing(false)
     }
@@ -220,11 +232,15 @@ export default function Screen5DocumentScan({ onNext, onBack }) {
       previewUrl: review.previewUrl,
       alerts,
       details: structuredClone(review),
+      fileName: review.fileName || review.title,
+      mimeType: review.mimeType || 'application/octet-stream',
+      fileDataUrl: review.fileDataUrl || review.previewUrl || null,
+      extractedText: review.extractedText || '',
     }
 
     const documents = sessionData.intake.documents
     updateIntake('documents', {
-      currentReview: review,
+      currentReview: { ...review, savedAt: new Date().toISOString() },
       timeline: [...documents.timeline, record],
     })
     setSaved(true)

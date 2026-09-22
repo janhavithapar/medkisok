@@ -15,28 +15,6 @@ const RED_FLAG_RULES = [
 
 export const DEMO_ACCOUNTS = [
   {
-    id: 'user-patient-1',
-    phone: '9876543210',
-    password: 'password123',
-    role: 'patient',
-    name: 'Ramesh Sharma',
-    age: '42',
-    gender: 'Male',
-    abhaId: '14-1234-5678-9012',
-    language: 'hi',
-  },
-  {
-    id: 'user-patient-2',
-    phone: '9123456789',
-    password: 'password123',
-    role: 'patient',
-    name: 'Priya Patel',
-    age: '29',
-    gender: 'Female',
-    abhaId: '14-9876-5432-1098',
-    language: 'en',
-  },
-  {
     id: 'user-doctor-1',
     phone: '9811122233',
     password: 'doctor123',
@@ -44,14 +22,6 @@ export const DEMO_ACCOUNTS = [
     name: 'Dr. Sharma',
     specialty: 'General Medicine',
     doctorId: 'dr-sharma',
-  },
-  {
-    id: 'user-nurse-1',
-    phone: '9822233344',
-    password: 'nurse123',
-    role: 'nurse',
-    name: 'Sister Anjali',
-    hospitalId: 'apollo-clinic',
   },
 ]
 
@@ -75,6 +45,16 @@ const initialState = {
     language: 'en',
     opdType: '',
     assignedDoctorId: 'dr-sharma',
+    arrivalAt: new Date().toISOString(),
+    consultationStatus: 'Waiting for Doctor',
+    nurseTriage: {
+      bloodPressure: '',
+      heartRate: '',
+      temperature: '',
+      spo2: '',
+      weight: '',
+      notes: '',
+    },
   },
   intake: {
     chiefComplaint: '',
@@ -122,6 +102,54 @@ const initialState = {
       confirmedBy: null,
     },
   },
+  activityLog: [
+    {
+      id: 'visit-demo',
+      type: 'visit',
+      title: 'MediKiosk intake started',
+      detail: 'Patient profile created for kiosk use.',
+      timestamp: new Date().toISOString(),
+      status: 'Pending Review',
+    },
+  ],
+  patientQueue: [
+    {
+      id: 'queue-meena', patient: { name: 'Meena S.', age: '36', gender: 'Female', abhaId: '14-5555-2222-1111', language: 'hi', assignedDoctorId: 'dr-sharma', arrivalAt: new Date(Date.now() - 7 * 60000).toISOString(), consultationStatus: 'Waiting for Doctor' },
+      intake: { chiefComplaint: 'Fever and headache for two days', hpi: { site: 'Head', onset: '2 days ago', character: 'Dull', radiation: '', associatedSymptoms: 'Body aches', timing: '', exacerbatingRelieving: '', severity: 'Moderate' }, nurseTriage: { bloodPressure: '118/76 mmHg', heartRate: '88 bpm', temperature: '38.2 C', spo2: '98%', weight: '58 kg', notes: 'Alert and oriented.' }, redFlags: [], documents: { timeline: [] } },
+    },
+    {
+      id: 'queue-arjun', patient: { name: 'Arjun K.', age: '51', gender: 'Male', abhaId: '14-7777-3333-2222', language: 'en', assignedDoctorId: 'dr-sharma', arrivalAt: new Date(Date.now() - 3 * 60000).toISOString(), consultationStatus: 'Completed' },
+      intake: { chiefComplaint: 'Follow-up consultation', hpi: { site: '', onset: '', character: '', radiation: '', associatedSymptoms: '', timing: '', exacerbatingRelieving: '', severity: '' }, nurseTriage: { bloodPressure: '126/82 mmHg', heartRate: '76 bpm', temperature: '36.8 C', spo2: '99%', weight: '72 kg', notes: 'Routine follow-up.' }, redFlags: [], documents: { timeline: [] } },
+    },
+  ],
+  patientHistory: [
+    {
+      id: 'history-ramesh-jan-2025',
+      patient: { name: 'Ramesh Sharma', age: '42', gender: 'Male', abhaId: '14-1234-5678-9012' },
+      hospitalName: 'Apollo Clinic',
+      doctorName: 'Dr. Sharma',
+      visitDate: '2025-01-18T09:30:00.000Z',
+      complaint: 'Persistent fever and fatigue',
+      diagnosis: 'Viral fever with mild dehydration',
+      notes: 'Symptoms improved after oral rehydration and rest. Review if fever persists for more than 48 hours.',
+      medications: ['Paracetamol 650 mg', 'ORS sachets'],
+      treatmentPlan: 'Hydration and symptomatic care; follow-up review in 48 hours.',
+      uploadedReports: [{ title: 'CBC report', summary: 'Mild leukocytosis noted.' }],
+    },
+    {
+      id: 'history-priya-sep-2025',
+      patient: { name: 'Priya Patel', age: '29', gender: 'Female', abhaId: '14-9876-5432-1098' },
+      hospitalName: 'Apollo Clinic',
+      doctorName: 'Dr. Sharma',
+      visitDate: '2025-09-12T11:15:00.000Z',
+      complaint: 'Severe migraine and nausea',
+      diagnosis: 'Migraine without aura',
+      notes: 'Headache triggered by stress and screen fatigue. Reassured and advised hydration and sleep routine.',
+      medications: ['Sumatriptan 50 mg as needed', 'Vitamin B complex'],
+      treatmentPlan: 'Avoid triggers, maintain hydration, and report recurring episodes.',
+      uploadedReports: [{ title: 'Neurology consult note', summary: 'No red flags noted on review.' }],
+    },
+  ],
 }
 
 function flattenText(value) {
@@ -160,6 +188,7 @@ function detectRedFlags(text, intake = null) {
 export function KioskProvider({ children }) {
   const [role, setRole] = useState('kiosk') // 'kiosk' | 'doctor'
   const [data, setData] = useState(initialState)
+  const [patientView, setPatientView] = useState('kiosk')
   const [users, setUsers] = useState(() => {
     try {
       const saved = localStorage.getItem('medikiosk_users')
@@ -215,6 +244,28 @@ export function KioskProvider({ children }) {
 
   const setActiveDoctor = useCallback((activeDoctorId) => {
     setData((prev) => ({ ...prev, activeDoctorId }))
+  }, [])
+
+  const patientQueue = [
+    {
+      id: 'current-patient',
+      patient: data.patient,
+      intake: data.intake,
+    },
+    ...data.patientQueue,
+  ].filter((record) => record.patient?.assignedDoctorId === data.activeDoctorId)
+
+  const selectPatient = useCallback((patientId) => {
+    setData((prev) => ({ ...prev, selectedPatientId: patientId }))
+  }, [])
+
+  const updatePatientQueueStatus = useCallback((patientId, consultationStatus) => {
+    setData((prev) => {
+      if (patientId === 'current-patient') {
+        return { ...prev, patient: { ...prev.patient, consultationStatus } }
+      }
+      return { ...prev, patientQueue: prev.patientQueue.map((record) => record.id === patientId ? { ...record, patient: { ...record.patient, consultationStatus } } : record) }
+    })
   }, [])
 
   // Generic dotted-path setter, e.g. updateIntake('hpi.site', 'Left knee')
@@ -281,6 +332,31 @@ export function KioskProvider({ children }) {
         intake: prev.intake,
       }
       console.log('[MediKiosk FHIR / ABDM mock push]', payload)
+
+      const confirmRecord = {
+        id: `visit-${Date.now()}`,
+        patient: {
+          name: prev.patient.name,
+          abhaId: prev.patient.abhaId,
+          age: prev.patient.age,
+          gender: prev.patient.gender,
+        },
+        hospitalName: prev.selectedHospital || 'Apollo Clinic',
+        doctorName: prev.activeDoctorId ? doctors.find((doc) => doc.id === prev.activeDoctorId)?.name || 'Dr. Sharma' : 'Dr. Sharma',
+        visitDate: confirmedAt,
+        complaint: prev.intake?.chiefComplaint || 'No complaint captured',
+        diagnosis: 'Assessment completed by physician',
+        notes: 'Clinical consultation completed; summary confirmed by the doctor.',
+        medications: ['Follow physician-prescribed treatment plan'],
+        treatmentPlan: 'Continue follow-up care and repeat review if symptoms recur.',
+        uploadedReports: Array.isArray(prev.intake?.documents?.timeline)
+          ? prev.intake.documents.timeline.map((doc) => ({
+              title: doc.title || 'Uploaded report',
+              summary: doc.summary || 'Document reviewed during consultation',
+            }))
+          : [],
+      }
+
       return {
         ...prev,
         aiSummary: {
@@ -293,12 +369,48 @@ export function KioskProvider({ children }) {
             lastEditedAt: confirmedAt,
           },
         },
+        patientHistory: [confirmRecord, ...(prev.patientHistory || [])],
       }
     })
-  }, [])
+  }, [doctors])
 
   const resetIntake = useCallback(() => {
     setData(initialState)
+  }, [])
+
+  const recordPatientVisit = useCallback((visit) => {
+    setData((prev) => {
+      const nextVisit = {
+        id: visit.id || `visit-${Date.now()}`,
+        patient: {
+          ...(prev.patient || {}),
+          ...(visit.patient || {}),
+          name: visit.patient?.name || prev.patient?.name || 'Patient',
+          abhaId: visit.patient?.abhaId || prev.patient?.abhaId || '',
+          age: visit.patient?.age || prev.patient?.age || '',
+          gender: visit.patient?.gender || prev.patient?.gender || '',
+        },
+        hospitalName: visit.hospitalName || prev.selectedHospital || 'Apollo Clinic',
+        doctorName: visit.doctorName || 'Dr. Sharma',
+        visitDate: visit.visitDate || new Date().toISOString(),
+        complaint: visit.complaint || prev.intake?.chiefComplaint || 'No complaint captured',
+        diagnosis: visit.diagnosis || 'Assessment in progress',
+        notes: visit.notes || 'No doctor notes recorded.',
+        medications: Array.isArray(visit.medications) ? visit.medications : [],
+        treatmentPlan: visit.treatmentPlan || 'Continue monitoring and scheduled review.',
+        uploadedReports: Array.isArray(visit.uploadedReports)
+          ? visit.uploadedReports
+          : (Array.isArray(prev.intake?.documents?.timeline) ? prev.intake.documents.timeline.map((doc) => ({
+              title: doc.title || 'Uploaded report',
+              summary: doc.summary || 'Report uploaded during consultation',
+            })) : []),
+      }
+
+      return {
+        ...prev,
+        patientHistory: [nextVisit, ...(prev.patientHistory || [])],
+      }
+    })
   }, [])
 
   const loginWithPhone = useCallback((phone, password) => {
@@ -311,10 +423,14 @@ export function KioskProvider({ children }) {
       const next = {
         ...prev,
         auth: { isAuthenticated: true, user },
+        patient: {
+          ...prev.patient,
+          language: user.role === 'doctor' || user.role === 'nurse' ? 'en' : prev.patient.language,
+        },
       }
       if (user.role === 'patient') {
         next.patient = {
-          ...prev.patient,
+          ...next.patient,
           name: user.name || prev.patient.name,
           phone: user.phone,
           age: user.age || prev.patient.age,
@@ -326,11 +442,14 @@ export function KioskProvider({ children }) {
     })
     if (user.role === 'doctor') {
       setRole('doctor')
+      setPatientView('kiosk')
       if (user.doctorId) setActiveDoctor(user.doctorId)
     } else if (user.role === 'nurse') {
       setRole('nurse')
+      setPatientView('kiosk')
     } else {
       setRole('kiosk')
+      setPatientView('profile')
     }
     return { success: true, user }
   }, [users, setActiveDoctor])
@@ -387,6 +506,7 @@ export function KioskProvider({ children }) {
       setRole('nurse')
     } else {
       setRole('kiosk')
+      setPatientView('profile')
     }
 
     return { success: true, user: newUser }
@@ -413,6 +533,8 @@ export function KioskProvider({ children }) {
     setRole('kiosk')
   }, [])
 
+  const currentUserRole = data.auth?.user?.role || 'patient'
+
   const value = {
     role,
     setRole,
@@ -420,6 +542,9 @@ export function KioskProvider({ children }) {
     sessionData: data,
     auth: data.auth,
     currentUser: data.auth?.user || null,
+    currentUserRole,
+    patientView,
+    setPatientView,
     doctors,
     hospitals,
     demoAccounts: DEMO_ACCOUNTS,
@@ -428,10 +553,16 @@ export function KioskProvider({ children }) {
     logout,
     setSelectedHospital,
     setActiveDoctor,
+    patientQueue,
+    patientHistory: data.patientHistory || [],
+    selectedPatientId: data.selectedPatientId || 'current-patient',
+    selectPatient,
+    updatePatientQueueStatus,
     updateIntake,
     updatePatient,
     addSymptomTag,
     confirmSummary,
+    recordPatientVisit,
     resetIntake,
     geminiApiKey,
     setGeminiApiKey,

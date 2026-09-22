@@ -111,15 +111,26 @@ export default function DoctorDashboard() {
 }
 
 function SummaryField({ label, value }) {
+  const summaryValue = (input, fallback = 'Not captured yet') => {
+    if (input === null || input === undefined || input === '') return fallback
+    const rendered = String(input).trim()
+    return rendered || fallback
+  }
+
   return (
     <div className="bg-slate-50 rounded-xl px-3 py-2">
       <p className="text-[11px] text-slate-400 font-medium">{label}</p>
-      <p className="text-slate-700">{value || '—'}</p>
+      <p className="text-slate-700">{summaryValue(value)}</p>
     </div>
   )
 }
 
 function SummaryList({ label, items }) {
+  const summaryValue = (input, fallback = 'Not captured yet') => {
+    if (!input || (Array.isArray(input) && input.length === 0)) return fallback
+    return input
+  }
+
   return (
     <div className="bg-slate-50 rounded-xl px-3 py-2">
       <p className="text-[11px] text-slate-400 font-medium">{label}</p>
@@ -128,7 +139,7 @@ function SummaryList({ label, items }) {
           {items.map((item, i) => <li key={i}>{item}</li>)}
         </ul>
       ) : (
-        <p className="text-slate-700">—</p>
+        <p className="text-slate-700">{summaryValue(items)}</p>
       )}
     </div>
   )

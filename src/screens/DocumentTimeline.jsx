@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { CalendarDays, FileText, Pill, TestTube2, ScanLine, Eye, X, Image as ImageIcon } from 'lucide-react'
+import { CalendarDays, FileText, Pill, TestTube2, ScanLine, Eye, X, Download } from 'lucide-react'
 
 export default function DocumentTimeline({ records = [] }) {
   const [lightboxImage, setLightboxImage] = useState(null)
@@ -56,6 +56,16 @@ export default function DocumentTimeline({ records = [] }) {
 
                     {record.summary && (
                       <p className="text-sm text-slate-600 mt-1 font-medium">{record.summary}</p>
+                    )}
+
+                    {record.details?.labs?.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {record.details.labs.map((lab) => <span key={`${record.id}-${lab.name}`} className={`rounded-full px-2.5 py-1 text-xs font-bold ${lab.status === 'High' ? 'bg-red-100 text-red-700' : lab.status === 'Low' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{lab.name}: {lab.status}</span>)}
+                      </div>
+                    )}
+
+                    {record.fileDataUrl && (
+                      <a href={record.fileDataUrl} target="_blank" rel="noreferrer" download={record.fileName || record.title} className="inline-flex items-center gap-2 mt-3 rounded-lg bg-skyclin-50 px-3 py-2 text-xs font-bold text-skyclin-700 hover:bg-skyclin-100"><Download size={15} /> View / download uploaded file</a>
                     )}
 
                     {/* Patient Notes */}

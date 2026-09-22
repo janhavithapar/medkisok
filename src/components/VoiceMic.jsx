@@ -17,7 +17,15 @@ import { getLocale, getSpeechLocale } from '../i18n.js'
  *  - label: optional accessible label / helper text
  *  - size: 'sm' | 'lg' (default 'lg') controls tap target size
  */
-export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg' }) {
+export default function VoiceMic({
+  onResult,
+  label = 'Tap to speak',
+  size = 'lg',
+  autoStart = false,
+  onPartialTranscript,
+  onListeningChange,
+  disabled = false,
+}) {
   const { data } = useKiosk()
   const locale = getLocale(data.patient.language)
   const speechLocale = getSpeechLocale(data.patient.language)
@@ -31,6 +39,12 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
     recognitionRef.current?.abort()
   }, [])
 
+  useEffect(() => {
+    if (autoStart && !disabled && !listening) {
+      startListening()
+    }
+  }, [autoStart, disabled, listening])
+
   const mockTranscripts = [
     locale.voiceChest,
     locale.voiceFever,
@@ -38,28 +52,50 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
     locale.voiceCough,
   ]
 
+  function setListeningState(next) {
+    setListening(next)
+    onListeningChange?.(next)
+  }
+
   function startListening() {
-    if (listening) return
+    if (disabled || listening) return
     setError('')
-    setListening(true)
+    setListeningState(true)
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition()
       recognition.lang = speechLocale
       recognition.continuous = false
-      recognition.interimResults = false
+      recognition.interimResults = true
       recognition.maxAlternatives = 1
       recognitionRef.current = recognition
 
       recognition.onresult = (event) => {
-        const transcript = event.results[0]?.[0]?.transcript?.trim()
-        setListening(false)
-        recognitionRef.current = null
-        if (transcript) onResult?.(transcript)
+        let interimText = ''
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const current = event.results[i]
+          const transcript = current[0]?.transcript?.trim() || ''
+          if (transcript) {
+            interimText += `${interimText ? ' ' : ''}${transcript}`
+          }
+          if (current.isFinal) {
+            const finalTranscript = interimText.trim()
+            setListeningState(false)
+            recognitionRef.current = null
+            if (finalTranscript) {
+              onPartialTranscript?.(finalTranscript)
+              onResult?.(finalTranscript)
+            }
+          }
+        }
+
+        if (interimText && !event.results[event.results.length - 1]?.isFinal) {
+          onPartialTranscript?.(interimText)
+        }
       }
       recognition.onerror = (event) => {
-        setListening(false)
+        setListeningState(false)
         recognitionRef.current = null
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           setError('Microphone permission is required')
@@ -68,7 +104,7 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
         }
       }
       recognition.onend = () => {
-        setListening(false)
+        setListeningState(false)
         recognitionRef.current = null
       }
       recognition.start()
@@ -78,7 +114,8 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
     // Fallback for browsers without Web Speech API support.
     timeoutRef.current = setTimeout(() => {
       const transcript = mockTranscripts[Math.floor(Math.random() * mockTranscripts.length)]
-      setListening(false)
+      setListeningState(false)
+      onPartialTranscript?.(transcript)
       onResult?.(transcript)
     }, 1800)
   }
@@ -87,7 +124,7 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
     clearTimeout(timeoutRef.current)
     recognitionRef.current?.stop()
     recognitionRef.current = null
-    setListening(false)
+    setListeningState(false)
   }
 
   const dimension = size === 'sm' ? 'w-12 h-12' : 'w-16 h-16'
@@ -121,7 +158,7 @@ export default function VoiceMic({ onResult, label = 'Tap to speak', size = 'lg'
  * Replace with `window.speechSynthesis.speak(new SpeechSynthesisUtterance(text))`
  * for real text-to-speech prompts read aloud to the patient.
  */
-export function speak(text, language = 'en') {
+export function speak(text, language = 'en', callbacks = {}) {
   if (!('speechSynthesis' in window)) {
     console.log('[MediKiosk TTS unavailable]:', text)
     return
@@ -134,11 +171,14 @@ export function speak(text, language = 'en') {
     const utterance = new SpeechSynthesisUtterance(text)
     const voices = speech.getVoices()
     const exactVoice = voices.find((voice) => voice.lang.toLowerCase() === speechLocale.toLowerCase())
-    const regionalVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith(speechLocale.slice(0, 2).toLowerCase()))
+    const regionalVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith(`${speechLocale.slice(0, 2).toLowerCase()}-`))
     utterance.lang = speechLocale
     utterance.voice = exactVoice || regionalVoice || null
     utterance.rate = 0.9
     utterance.pitch = 1
+    utterance.onstart = callbacks.onStart
+    utterance.onend = callbacks.onEnd
+    utterance.onerror = callbacks.onEnd
     speech.speak(utterance)
   }
 

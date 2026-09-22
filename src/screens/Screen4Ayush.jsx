@@ -35,43 +35,43 @@ export default function Screen4Ayush({ onNext, onBack }) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 pb-12">
-      <div className="text-center mb-8">
-        <div className="w-14 h-14 rounded-2xl bg-medi-100 flex items-center justify-center mx-auto mb-3">
-          <Leaf className="text-medi-700" size={28} />
+    <div className="mx-auto max-w-4xl px-4 py-8 pb-12">
+      <div className="mb-8 text-center">
+        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-100 to-amber-100 shadow-[0_18px_32px_rgba(16,185,129,0.14)]">
+          <Leaf className="text-emerald-700" size={30} />
         </div>
-        <p className="text-sm font-bold uppercase tracking-wide text-medi-700">{locale.ayurvedic}</p>
-        <h1 className="text-2xl font-bold text-slate-800 mt-1">{locale.ayurvedaHistory}</h1>
-        <p className="text-slate-500 mt-2">{locale.chooseOptions}</p>
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">{locale.ayurvedic}</p>
+        <h1 className="mt-2 text-3xl font-black text-slate-900">{locale.ayurvedaHistory}</h1>
+        <p className="mt-2 text-slate-600">{locale.chooseOptions}</p>
       </div>
 
-      <section className="mb-8">
+      <section className="mb-8 rounded-[2rem] border border-emerald-100 bg-white/80 p-5 shadow-[0_18px_40px_rgba(12,36,28,0.06)] sm:p-6">
         <SectionHeading title={locale.dashavidha} description={locale.constitution} onSpeak={() => speak(locale.dashavidha)} />
         <AyushGroup label={locale.constitution} value={ayush.prakriti} options={CONSTITUTIONS} onSelect={(value) => select('prakriti', value)} onSpeak={speak} language={sessionData.patient.language} />
         <AyushGroup label={locale.currentBalance} value={ayush.vikriti} options={VIKRITI} onSelect={(value) => select('vikriti', value)} onSpeak={speak} language={sessionData.patient.language} />
         <AyushGroup label={locale.digestion} value={ayush.agni} options={AGNI} onSelect={(value) => select('agni', value)} onSpeak={speak} language={sessionData.patient.language} />
         <AyushGroup label={locale.bowel} value={ayush.koshtha} options={KOSHTHA} onSelect={(value) => select('koshtha', value)} onSpeak={speak} language={sessionData.patient.language} />
-        <div className="flex justify-center mt-4"><VoiceMic size="sm" onResult={(value) => voiceTo('prakriti', value)} label={locale.speakAnswer} /></div>
+        <div className="mt-4 flex justify-center"><VoiceMic size="sm" onResult={(value) => voiceTo('prakriti', value)} label={locale.speakAnswer} /></div>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50/80 to-white p-5 shadow-[0_18px_40px_rgba(251,191,36,0.08)] sm:p-6">
         <SectionHeading title={locale.ahara} description={locale.allDiet} onSpeak={() => speak(locale.ahara)} />
         <Checklist options={AHARA} selected={ayush.ahara} onToggle={(value) => toggle('ahara', value)} onSpeak={speak} language={sessionData.patient.language} />
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 rounded-[2rem] border border-sky-100 bg-gradient-to-br from-sky-50/70 to-white p-5 shadow-[0_18px_40px_rgba(14,165,233,0.08)] sm:p-6">
         <SectionHeading title={locale.vihara} description={locale.routine} onSpeak={() => speak(locale.vihara)} />
         <AyushGroup label={locale.sleep} value={ayush.sleepHours} options={SLEEP} onSelect={(value) => select('sleepHours', value)} onSpeak={speak} language={sessionData.patient.language} />
-        <p className="text-sm font-bold text-slate-700 mb-2 mt-5">{locale.activity}</p>
+        <p className="mt-5 mb-2 text-sm font-black text-slate-700">{locale.activity}</p>
         <Checklist options={ACTIVITY} selected={ayush.activityHabits} onToggle={(value) => toggle('activityHabits', value)} onSpeak={speak} language={sessionData.patient.language} />
-        <div className="flex justify-center mt-4"><VoiceMic size="sm" onResult={(value) => voiceTo('activityHabits', [value])} label={locale.speakAnswer} /></div>
+        <div className="mt-4 flex justify-center"><VoiceMic size="sm" onResult={(value) => voiceTo('activityHabits', [value])} label={locale.speakAnswer} /></div>
       </section>
 
       <div className="flex gap-3">
-        <button type="button" onClick={onBack} className="h-14 w-14 rounded-2xl border-2 border-slate-200 bg-white text-slate-600 flex items-center justify-center" aria-label="Go back">
+        <button type="button" onClick={onBack} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300" aria-label="Go back">
           <ChevronLeft size={22} />
         </button>
-        <button type="button" onClick={onNext} className="flex-1 h-14 rounded-2xl bg-medi-600 text-white font-bold flex items-center justify-center gap-2">
+        <button type="button" onClick={onNext} className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-base font-black text-white shadow-[0_20px_30px_rgba(16,185,129,0.2)] transition hover:brightness-105">
           {locale.saveAyurveda} <Check size={20} /> <ChevronRight size={20} />
         </button>
       </div>

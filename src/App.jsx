@@ -6,21 +6,33 @@ import IntakeChoice from './screens/IntakeChoice.jsx'
 import Screen3Intake from './screens/Screen3Intake.jsx'
 import Screen4Ayush from './screens/Screen4Ayush.jsx'
 import Screen5DocumentScan from './screens/Screen5DocumentScan.jsx'
-import DoctorDashboard from './screens/DoctorDashboard.jsx'
 import NurseTriage from './screens/NurseTriage.jsx'
 import DoctorConsultation from './screens/DoctorConsultation.jsx'
+import PatientProfile from './screens/PatientProfile.jsx'
 import { useKiosk } from './context/KioskContext.jsx'
-import { CheckCircle2, FileText, ArrowRight, RotateCcw, Stethoscope } from 'lucide-react'
+import { CheckCircle2, RotateCcw, Stethoscope } from 'lucide-react'
 
-// Steps array for the patient kiosk flow
 const KIOSK_STEPS = ['language', 'identify', 'choice', 'intake', 'opd', 'ayush', 'documents', 'complete']
 
-export default function App() {
-  const { role, setRole, data, updatePatient, resetIntake, logout } = useKiosk()
-  const [stepIndex, setStepIndex] = useState(0)
-  const [intakeMode, setIntakeMode] = useState('full') // 'full' | 'upload-only'
+function getSecureStaffRouteRole() {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const role = params.get('role')
+    return role === 'doctor' || role === 'nurse' ? role : null
+  } catch {
+    return null
+  }
+}
 
-  // When user logs out, immediately return to identification / sign-in screen
+export default function App() {
+  const { role, data, updatePatient, resetIntake, logout, currentUserRole, patientView } = useKiosk()
+  const [stepIndex, setStepIndex] = useState(0)
+  const [intakeMode, setIntakeMode] = useState('full')
+  const secureStaffRouteRole = getSecureStaffRouteRole()
+  const staffRole = currentUserRole === 'doctor' || currentUserRole === 'nurse' ? currentUserRole : null
+  const isAuthorizedSecureStaffRoute = !secureStaffRouteRole || (staffRole === secureStaffRouteRole)
+  const effectiveRole = staffRole || 'patient'
+
   const prevAuthRef = useRef(data.auth?.isAuthenticated)
   useEffect(() => {
     if (prevAuthRef.current && !data.auth?.isAuthenticated) {
@@ -68,47 +80,50 @@ export default function App() {
   const currentStep = KIOSK_STEPS[stepIndex]
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-transparent">
       <Header onSignOut={handleSignOut} />
 
       <main className="kiosk-shell">
-        {role === 'kiosk' && (
-          <>
-            {currentStep === 'language' && <LanguageSelect onNext={goNext} />}
-            {currentStep === 'identify' && <Screen2Identify onNext={goNext} onBack={goBack} />}
-            {currentStep === 'choice' && (
-              <IntakeChoice
-                onSelectFull={handleSelectFull}
-                onSelectUpload={handleSelectUpload}
-                onBack={() => goToStep('identify')}
-              />
-            )}
-            {currentStep === 'intake' && <Screen3Intake onNext={goNext} />}
-            {currentStep === 'opd' && <OpdSelect onSelect={goNext} updatePatient={updatePatient} />}
-            {currentStep === 'ayush' && (
-              data.patient.opdType === 'ayurvedic'
-                ? <Screen4Ayush onNext={goNext} onBack={goBack} />
-                : <SkipAyush onNext={goNext} />
-            )}
-            {currentStep === 'documents' && (
-              <Screen5DocumentScan
-                onNext={goNext}
-                onBack={() => (intakeMode === 'upload-only' ? goToStep('choice') : (data.patient.opdType === 'ayurvedic' ? goToStep('ayush') : goToStep('opd')))}
-              />
-            )}
-            {currentStep === 'complete' && (
-              <IntakeCompletion
-                intakeMode={intakeMode}
-                patientName={data.patient.name}
-                onStartFull={handleSelectFull}
-                onRestart={handleRestart}
-              />
-            )}
-          </>
-        )}
+        <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
+          {effectiveRole === 'patient' && patientView === 'kiosk' && (
+            <>
+              {currentStep === 'language' && <LanguageSelect onNext={goNext} />}
+              {currentStep === 'identify' && <Screen2Identify onNext={goNext} onBack={goBack} />}
+              {currentStep === 'choice' && (
+                <IntakeChoice
+                  onSelectFull={handleSelectFull}
+                  onSelectUpload={handleSelectUpload}
+                  onBack={() => goToStep('identify')}
+                />
+              )}
+              {currentStep === 'intake' && <Screen3Intake onNext={goNext} />}
+              {currentStep === 'opd' && <OpdSelect onSelect={goNext} updatePatient={updatePatient} />}
+              {currentStep === 'ayush' && (
+                data.patient.opdType === 'ayurvedic'
+                  ? <Screen4Ayush onNext={goNext} onBack={goBack} />
+                  : <SkipAyush onNext={goNext} />
+              )}
+              {currentStep === 'documents' && (
+                <Screen5DocumentScan
+                  onNext={goNext}
+                  onBack={() => (intakeMode === 'upload-only' ? goToStep('choice') : (data.patient.opdType === 'ayurvedic' ? goToStep('ayush') : goToStep('opd')))}
+                />
+              )}
+              {currentStep === 'complete' && (
+                <IntakeCompletion
+                  intakeMode={intakeMode}
+                  patientName={data.patient.name}
+                  onStartFull={handleSelectFull}
+                  onRestart={handleRestart}
+                />
+              )}
+            </>
+          )}
 
-        {role === 'nurse' && <NurseTriage />}
-        {role === 'doctor' && <DoctorConsultation />}
+          {effectiveRole === 'patient' && patientView === 'profile' && <PatientProfile />}
+          {isAuthorizedSecureStaffRoute && effectiveRole === 'nurse' && <NurseTriage />}
+          {isAuthorizedSecureStaffRoute && effectiveRole === 'doctor' && <DoctorConsultation />}
+        </div>
       </main>
     </div>
   )

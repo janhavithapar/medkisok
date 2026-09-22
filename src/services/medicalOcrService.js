@@ -21,6 +21,7 @@ export function parseLabReportText(text = '') {
   const alerts = []
   const diagnoses = []
   const today = new Date().toISOString().slice(0, 10)
+  const normalizedText = text.replace(/\s+/g, ' ').trim()
 
   // Helper to add parameter
   function addLab(name, val, ref, unit, lowRef, highRef) {
@@ -42,80 +43,80 @@ export function parseLabReportText(text = '') {
   }
 
   // 1. Hemoglobin (e.g., "Hemoglobin 15.2 g/dL 13 -17.5")
-  const hbMatch = text.match(/Hemoglobin\s+([\d.]+)\s*(g\/dL)?\s*([\d\s.-]+)/i)
+  const hbMatch = normalizedText.match(/Hemoglobin\s+([\d.]+)\s*(g\/dL)?\s*([\d\s.-]+)/i)
   if (hbMatch) {
     addLab('Hemoglobin', hbMatch[1], '13.0 - 17.5 g/dL', 'g/dL', 13.0, 17.5)
   }
 
   // 2. Fasting Glucose (e.g., "Glucose (Fasting) 80.7 mg/dL Normal : 70 - 100")
-  const gluMatch = text.match(/Glucose\s*\((?:Fasting)\)\s+([\d.]+)\s*(mg\/dL)?/i) ||
-                   text.match(/Fasting\s*(?:Blood\s*)?Glucose\s+([\d.]+)\s*(mg\/dL)?/i)
+  const gluMatch = normalizedText.match(/Glucose\s*\((?:Fasting)\)\s+([\d.]+)\s*(mg\/dL)?/i) ||
+                   normalizedText.match(/Fasting\s*(?:Blood\s*)?Glucose\s+([\d.]+)\s*(mg\/dL)?/i)
   if (gluMatch) {
     addLab('Fasting glucose', gluMatch[1], '70 - 100 mg/dL', 'mg/dL', 70, 100)
   }
 
   // 3. HbA1c (e.g., "HBA1c-Glycated Haemoglobin 5.5 % Non-diabetic: 4-6")
-  const hba1cMatch = text.match(/HBA1c[^\d]+([\d.]+)\s*%/i)
+  const hba1cMatch = normalizedText.match(/HBA1c[^\d]+([\d.]+)\s*%/i)
   if (hba1cMatch) {
     addLab('HbA1c', hba1cMatch[1], '4.0 - 6.0 %', '%', 4.0, 6.0)
   }
 
   // 4. Creatinine (e.g., "Creatinine 0.88 mg/dL 0.5 - 1.3")
-  const creatMatch = text.match(/Creatinine\s+([\d.]+)\s*(mg\/dL)?/i)
+  const creatMatch = normalizedText.match(/Creatinine\s+([\d.]+)\s*(mg\/dL)?/i)
   if (creatMatch) {
     addLab('Creatinine', creatMatch[1], '0.5 - 1.3 mg/dL', 'mg/dL', 0.5, 1.3)
   }
 
   // 5. Total Leucocytes / WBC (e.g., "Total Leucocytes Count 6.7 10^3/µL 4.4-11")
-  const wbcMatch = text.match(/Total Leucocytes Count\s+([\d.]+)/i)
+  const wbcMatch = normalizedText.match(/Total Leucocytes Count\s+([\d.]+)/i)
   if (wbcMatch) {
     addLab('Total Leucocytes (WBC)', wbcMatch[1], '4.4 - 11.0 10^3/µL', '10^3/µL', 4.4, 11.0)
   }
 
   // 6. Platelet Count (e.g., "Platelet Count 222.0 10^3/µL 150-450")
-  const pltMatch = text.match(/Platelet Count\s+([\d.]+)/i)
+  const pltMatch = normalizedText.match(/Platelet Count\s+([\d.]+)/i)
   if (pltMatch) {
     addLab('Platelet Count', pltMatch[1], '150 - 450 10^3/µL', '10^3/µL', 150, 450)
   }
 
   // 7. Total RBC (e.g., "Total RBC 4.89 10^6/µL 4.1-6")
-  const rbcMatch = text.match(/Total RBC\s+([\d.]+)/i)
+  const rbcMatch = normalizedText.match(/Total RBC\s+([\d.]+)/i)
   if (rbcMatch) {
     addLab('Total RBC', rbcMatch[1], '4.1 - 6.0 10^6/µL', '10^6/µL', 4.1, 6.0)
   }
 
   // 8. Total Protein (e.g., "Total Protein 6.32 g/dL 6.4 - 8.2")
-  const protMatch = text.match(/Total Protein\s+([\d.]+)\s*(g\/dL)?/i)
+  const protMatch = normalizedText.match(/Total Protein\s+([\d.]+)\s*(g\/dL)?/i)
   if (protMatch) {
     addLab('Total Protein', protMatch[1], '6.4 - 8.2 g/dL', 'g/dL', 6.4, 8.2)
   }
 
   // 9. Total Cholesterol (e.g., "Total Cholesterol 194.8 mg/dL")
-  const cholMatch = text.match(/Total Cholesterol\s+([\d.]+)\s*(mg\/dL)?/i)
+  const cholMatch = normalizedText.match(/Total Cholesterol\s+([\d.]+)\s*(mg\/dL)?/i)
   if (cholMatch) {
     addLab('Total Cholesterol', cholMatch[1], '< 200 mg/dL', 'mg/dL', 0, 200)
   }
 
   // 10. LDL Cholesterol (e.g., "LDL- Cholesterol 135.0 mg/dL")
-  const ldlMatch = text.match(/LDL-?\s*Cholesterol\s+([\d.]+)\s*(mg\/dL)?/i)
+  const ldlMatch = normalizedText.match(/LDL-?\s*Cholesterol\s+([\d.]+)\s*(mg\/dL)?/i)
   if (ldlMatch) {
     addLab('LDL Cholesterol', ldlMatch[1], '< 100 mg/dL', 'mg/dL', 0, 100)
   }
 
   // 11. Triglycerides (e.g., "Triglycerides 129.2 mg/dL")
-  const tgMatch = text.match(/Triglycerides\s+([\d.]+)\s*(mg\/dL)?/i)
+  const tgMatch = normalizedText.match(/Triglycerides\s+([\d.]+)\s*(mg\/dL)?/i)
   if (tgMatch) {
     addLab('Triglycerides', tgMatch[1], '< 150 mg/dL', 'mg/dL', 0, 150)
   }
 
   // 12. TSH (e.g., "TSH (Thyroid Stimulating Hormone) 2.334 µIU/ml")
-  const tshMatch = text.match(/TSH[^\d]+([\d.]+)\s*(?:µIU\/ml|uIU\/ml)?/i)
+  const tshMatch = normalizedText.match(/TSH[^\d]+([\d.]+)\s*(?:µIU\/ml|uIU\/ml)?/i)
   if (tshMatch) {
     addLab('TSH (Thyroid)', tshMatch[1], '0.35 - 5.5 µIU/ml', 'µIU/ml', 0.35, 5.5)
   }
 
   // 13. Urine Protein
-  const urineProtMatch = text.match(/Protein\s+(Positive\s*\([^)]+\)|Positive|Negative)/i)
+  const urineProtMatch = normalizedText.match(/Protein\s+(Positive\s*\([^)]+\)|Positive|Negative)/i)
   if (urineProtMatch && urineProtMatch[1].toLowerCase().includes('positive')) {
     labs.push({
       name: 'Urine Protein',
@@ -128,23 +129,31 @@ export function parseLabReportText(text = '') {
   }
 
   // 14. Vitamin D3 & B12
-  const b12Match = text.match(/Vitamin B12\s+([\d.]+)\s*(pg\/ml)?/i)
+  const b12Match = normalizedText.match(/Vitamin B12\s+([\d.]+)\s*(pg\/ml)?/i)
   if (b12Match) {
     addLab('Vitamin B12', b12Match[1], '120 - 807 pg/ml', 'pg/ml', 120, 807)
   }
-  const d3Match = text.match(/Vitamin D3\s+([\d.]+)\s*(ng\/mL)?/i)
+  const d3Match = normalizedText.match(/Vitamin D3\s+([\d.]+)\s*(ng\/mL)?/i)
   if (d3Match) {
     addLab('Vitamin D3', d3Match[1], '30 - 100 ng/mL', 'ng/mL', 30, 100)
   }
 
   // Extract patient name if present
   let patientName = ''
-  const nameMatch = text.match(/Name:\s*([A-Za-z. ]+?)(?:\s+Age|$)/i)
+  const nameMatch = normalizedText.match(/(?:Patient\s*)?Name\s*:\s*([A-Za-z. ]+?)(?:\s+Age|\s+DOB|$)/i)
   if (nameMatch) {
     patientName = nameMatch[1].trim()
   }
 
-  if (labs.length === 0) return null
+  const dateMatch = normalizedText.match(/(?:Report|Collection|Sample|Date)\s*(?:Date)?\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})/i)
+  const reportDate = dateMatch ? dateMatch[1] : today
+  const doctorMatch = normalizedText.match(/(?:Doctor|Physician|Consultant)\s*[:\-]\s*([A-Za-z. ]+)/i)
+  const hospitalMatch = normalizedText.match(/(?:Hospital|Clinic|Laboratory|Lab)\s*[:\-]\s*([A-Za-z0-9 .&-]+)/i)
+  const medicineMatches = [...normalizedText.matchAll(/(?:Rx|Medicine|Medication)\s*[:\-]?\s*([A-Za-z][A-Za-z0-9 -]{2,})(?:\s+(\d+\s*(?:mg|ml|mcg|g)[^,;.]*)?)?/gi)]
+  const medicines = medicineMatches.map((match) => ({ name: match[1].trim(), dosage: (match[2] || 'Dosage not stated').trim() }))
+  if (labs.length === 0 && !patientName && medicines.length === 0) {
+    return { type: 'document', title: 'Uploaded medical document', date: reportDate, diagnoses: [], medicines: [], labs: [], alerts: [], patientNotes: '', extractedText: normalizedText, sourceFields: { doctorName: doctorMatch?.[1]?.trim() || '', hospitalName: hospitalMatch?.[1]?.trim() || '' } }
+  }
 
   // If cholesterol / LDL is high, note borderline dyslipidemia
   const ldlLab = labs.find((l) => l.name.includes('LDL'))
@@ -155,12 +164,14 @@ export function parseLabReportText(text = '') {
   return {
     type: 'lab',
     title: patientName ? `Health Lab Report (${patientName})` : 'Comprehensive Blood & Lab Report',
-    date: today,
+    date: reportDate,
     diagnoses,
-    medicines: [], // No medicines manufactured
+    medicines,
     labs,
     alerts,
     patientNotes: '',
+    extractedText: normalizedText,
+    sourceFields: { patientName, doctorName: doctorMatch?.[1]?.trim() || '', hospitalName: hospitalMatch?.[1]?.trim() || '' },
   }
 }
 
@@ -233,7 +244,11 @@ export function generateLocalOcrResult({ fileName = '', manualType = null, previ
     }
   }
 
-  // Default clean lab report (DO NOT fabricate Anemia or Diabetes!)
+  if (extractedText.trim().length > 20) {
+    return { type: 'document', title: fileName || 'Uploaded medical document', date: today, diagnoses: [], medicines: [], labs: [], alerts: [], patientNotes: '', extractedText, previewUrl, source: 'text-review-no-structured-values' }
+  }
+
+  // Default clean lab report is reserved for image-only documents without OCR text.
   return {
     type: 'lab',
     title: 'Complete Blood Count & Lab Report',

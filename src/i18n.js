@@ -203,7 +203,7 @@ export function translateOption(option, language) {
 }
 
 export function getSpeechLocale(language) {
-  return { en: 'en-IN', hi: 'hi-IN', mr: 'mr-IN', ta: 'ta-IN', te: 'te-IN', bn: 'bn-IN', gu: 'gu-IN', kn: 'kn-IN' }[language] || 'en-IN'
+  return { en: 'en-US', hi: 'hi-IN', mr: 'mr-IN', ta: 'ta-IN', te: 'te-IN', bn: 'bn-IN', gu: 'gu-IN', kn: 'kn-IN' }[language] || 'en-US'
 }
 
 export function localizedText(language, key) {
